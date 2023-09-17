@@ -28,5 +28,30 @@ description = "A Pytest plugin to enable Jupyter Notebook testing with Papermill
 requires-python = ">=3.7"
 dependencies = ["pytest>=7.0.0", "papermill ~= 2.0"]
 
+[project.optional-dependencies]
+dev = ["pre-commit"]
+
 [project.entry-points.pytest11]
 papermill = "pytest_papermill"
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+line_length = 120
+
+[tool.ruff]
+extend-select = [
+  "B",
+  "C4",
+  "T20",
+  "PT",
+  "RET",
+  "SIM",
+  "ARG",
+  "PTH",
+  "RUF",
+  "PLE",
+]
+line-length = 120
