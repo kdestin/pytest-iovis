@@ -1,11 +1,13 @@
-from pathlib import Path
-from typing import Any, Dict, Optional, Union
 import os
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import papermill as pm
 import pytest
 
 STYLE: Optional[str] = None
 SHOULD_OUTPUT_COLOR: bool = True
+
 
 @pytest.hookimpl(trylast=True)
 def pytest_configure(config: pytest.Config):
@@ -16,9 +18,8 @@ def pytest_configure(config: pytest.Config):
     SHOULD_OUTPUT_COLOR = terminalreporter.hasmarkup
     STYLE = os.getenv("PYTEST_THEME")
 
-def pytest_collect_file(
-    file_path: Path, parent: pytest.Collector
-) -> Optional[pytest.Collector]:
+
+def pytest_collect_file(file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
     if file_path.suffix in [".ipynb"]:
         return JupyterNotebookFile.from_parent(parent, path=file_path)
     return None
@@ -40,17 +41,17 @@ class JupyterNotebookTestFunction(pytest.Function):
         return super().repr_failure(excinfo)
 
 
-@pytest.fixture
+@pytest.fixture()
 def notebook_parameters() -> Dict[str, Any]:
     return {}
 
 
-@pytest.fixture
+@pytest.fixture()
 def notebook_path(request: pytest.FixtureRequest) -> Path:
     return request.path
 
 
-@pytest.fixture
+@pytest.fixture()
 def notebook_output_path(notebook_path: Path) -> Path:
     """Path to output jupyter notebook with output"""
     return notebook_path.parent / f"{notebook_path.stem}.output.ipynb"
@@ -58,17 +59,15 @@ def notebook_output_path(notebook_path: Path) -> Path:
 
 def inject_traceback_styling() -> str:
     """Returns an IPykernel argument that controls the colors used for syntax
-       highlighting.
+    highlighting.
     """
-
 
     if not SHOULD_OUTPUT_COLOR:
         return "--InteractiveShell.colors=NoColor"
 
-
-    # The latest version of IPython, 8.5.0 at time of writing, hard codes the 
-    # styling for syntax highlighting when generating a traceback. 
-    # 
+    # The latest version of IPython, 8.5.0 at time of writing, hard codes the
+    # styling for syntax highlighting when generating a traceback.
+    #
     # The snippet below monkey-patches ipykernel to use the same pygments
     # style as pytest for syntax highlighting
     return f"""--IPKernelApp.exec_lines=
@@ -104,15 +103,11 @@ def set_traceback_highlighting_style(style_name):
 
     bind(get_ipython().InteractiveTB, get_records)
 
-set_traceback_highlighting_style({repr(STYLE)})
+set_traceback_highlighting_style({STYLE!r})
 del set_traceback_highlighting_style"""
 
 
-def run_note_book(
-    notebook_path: Path, notebook_output_path: Path, notebook_parameters: Dict[str, Any]
-):
-
-    print(notebook_parameters)
+def run_note_book(notebook_path: Path, notebook_output_path: Path, notebook_parameters: Dict[str, Any]):
     pm.execute_notebook(
         notebook_path,
         notebook_output_path,
