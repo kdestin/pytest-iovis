@@ -32,7 +32,10 @@ dependencies = ["pytest>=7.0.0", "papermill ~= 2.0"]
 dev = ["pre-commit"]
 
 [project.entry-points.pytest11]
-papermill = "pytest_papermill"
+papermill = "pytest_papermill.plugin"
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.black]
 line-length = 120
