@@ -5,6 +5,8 @@ from typing import Any, Dict, Optional
 import papermill as pm
 import pytest
 
+from . import _fixtures
+
 STYLE: Optional[str] = None
 SHOULD_OUTPUT_COLOR: bool = True
 
@@ -17,6 +19,7 @@ def pytest_configure(config: pytest.Config):
 
     SHOULD_OUTPUT_COLOR = terminalreporter.hasmarkup
     STYLE = os.getenv("PYTEST_THEME")
+    config.pluginmanager.register(_fixtures)
 
 
 def pytest_collect_file(file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
@@ -39,22 +42,6 @@ class JupyterNotebookTestFunction(pytest.Function):
         if isinstance(excinfo.value, pm.PapermillExecutionError):
             return "\n".join(excinfo.value.traceback)
         return super().repr_failure(excinfo)
-
-
-@pytest.fixture()
-def notebook_parameters() -> Dict[str, Any]:
-    return {}
-
-
-@pytest.fixture()
-def notebook_path(request: pytest.FixtureRequest) -> Path:
-    return request.path
-
-
-@pytest.fixture()
-def notebook_output_path(notebook_path: Path) -> Path:
-    """Path to output jupyter notebook with output"""
-    return notebook_path.parent / f"{notebook_path.stem}.output.ipynb"
 
 
 def inject_traceback_styling() -> str:
