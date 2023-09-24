@@ -8,11 +8,20 @@ from ._subplugins import IPythonMarkupPlugin
 
 @pytest.fixture()
 def notebook_parameters() -> Dict[str, Any]:
+    """Return a dictionary used to parameterize a Jupyter Notebook with Papermill
+
+    Keys must be suitable to be used as a python identitifer. Values must be a JSON encodable value
+
+    .. see-also::
+
+        https://papermill.readthedocs.io/en/latest/usage-parameterize.html
+    """
     return {}
 
 
 @pytest.fixture()
 def notebook_path(request: pytest.FixtureRequest) -> Path:
+    """Return the path to the notebook under test"""
     return request.path
 
 
