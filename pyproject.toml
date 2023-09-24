@@ -44,6 +44,12 @@ line-length = 120
 profile = "black"
 line_length = 120
 
+[tool.pytest.ini_options]
+minversion = "7.0"
+console_output_style = "count"
+addopts = "--strict-markers"
+testpaths = ["tests"]
+
 [tool.ruff]
 extend-select = [
   "B",
