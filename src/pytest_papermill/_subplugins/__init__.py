@@ -20,6 +20,7 @@ plugin as follows:
     https://pluggy.readthedocs.io/en/latest/#define-and-collect-hooks
     https://docs.python.org/3/tutorial/classes.html#tut-scopes
 """
+from .discovery import JupyterNotebookDiscoverer
 from .markup import IPythonMarkupPlugin
 
-__all__ = ["IPythonMarkupPlugin"]
+__all__ = ["IPythonMarkupPlugin", "JupyterNotebookDiscoverer"]
