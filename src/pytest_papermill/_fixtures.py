@@ -17,8 +17,11 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture()
-def notebook_output_path(notebook_path: Path) -> Path:
-    """Path to output jupyter notebook with output"""
+def notebook_output_path(notebook_path: Path) -> Optional[Path]:
+    """Return the path to write the notebook output to.
+
+    Can return `None` to disable notebook output.
+    """
     return notebook_path.parent / f"{notebook_path.stem}.output.ipynb"
 
 
