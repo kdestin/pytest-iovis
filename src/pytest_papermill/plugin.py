@@ -1,8 +1,9 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, cast
 
 import papermill as pm
 import pytest
+from nbformat import NotebookNode
 
 from . import _fixtures
 from ._subplugins import IPythonMarkupPlugin
@@ -41,9 +42,12 @@ def run_note_book(
     notebook_parameters: Dict[str, Any],
     notebook_extra_arguments: Iterable[str],
 ):
-    pm.execute_notebook(
-        notebook_path,
-        notebook_output_path,
-        parameters=notebook_parameters,
-        extra_arguments=list(notebook_extra_arguments),
+    cast(
+        NotebookNode,
+        pm.execute_notebook(
+            notebook_path,
+            notebook_output_path,
+            parameters=notebook_parameters,
+            extra_arguments=list(notebook_extra_arguments),
+        ),
     )
