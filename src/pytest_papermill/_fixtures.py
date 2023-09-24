@@ -17,12 +17,14 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture()
-def notebook_output_path(notebook_path: Path) -> Optional[Path]:
+def notebook_output_path(notebook_path: Path, tmp_path: Path) -> Optional[Path]:
     """Return the path to write the notebook output to.
+
+    Defaults to `tmp_path / notebook_path.with_suffix(".output.ipynb").name`.
 
     Can return `None` to disable notebook output.
     """
-    return notebook_path.parent / f"{notebook_path.stem}.output.ipynb"
+    return tmp_path / notebook_path.with_suffix(".output.ipynb").name
 
 
 @pytest.fixture(scope="session")
