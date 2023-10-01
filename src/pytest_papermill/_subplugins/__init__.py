@@ -22,5 +22,6 @@ plugin as follows:
 """
 from .discovery import JupyterNotebookDiscoverer
 from .markup import IPythonMarkupPlugin
+from .notebook_marker import NotebookMarkerHandler
 
-__all__ = ["IPythonMarkupPlugin", "JupyterNotebookDiscoverer"]
+__all__ = ["IPythonMarkupPlugin", "JupyterNotebookDiscoverer", "NotebookMarkerHandler"]
