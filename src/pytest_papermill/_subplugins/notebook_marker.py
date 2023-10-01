@@ -61,11 +61,16 @@ class NotebookMarkerHandler:
                 message, or an internal error.
         :type on_error: Callable[[Union[str, Exception], pytest.Item, pytest.Mark], NoReturn]
         """
+        exception = None
         try:
             # Validate the marker parameters
             path = notebook(*mark.args, **mark.kwargs)
         except TypeError as e:
-            on_error(e, item, mark)
+            # Save the exception so on_error is called outside the context of an ongoing exception
+            exception = e
+
+        if exception is not None:
+            on_error(exception, item, mark)
 
         abs_path = Path(path) if Path(path).is_absolute() else Path(item.path.parent, path).resolve()
 
