@@ -1,7 +1,9 @@
 import inspect
 import re
 import types
-from typing import Optional
+from typing import Optional, Union
+
+import pytest
 
 
 def make_mark_description(mark_fn: types.FunctionType) -> str:
@@ -37,3 +39,29 @@ def make_mark_description(mark_fn: types.FunctionType) -> str:
     name = mark_fn.__name__
     signature_without_return = inspect.signature(mark_fn).replace(return_annotation=inspect.Signature.empty)
     return f"{name}{signature_without_return}: {get_short_description()}"
+
+
+def error_message_at_node(e: Union[str, Exception], node: pytest.Item) -> str:
+    """Add node's location to an exception message.
+
+    :param Union[str,Exception] e: The error message or exception to format
+    :param pytest.Item node: The pytest node responsible for the error message
+    :return: A error message prefixed with locating information about the node
+    :rtype: str
+    """
+    return f"{node.nodeid}: {e}"
+
+
+def error_message_at_mark_owner(e: Union[str, Exception], node: pytest.Item, mark: pytest.Mark) -> str:
+    """Add the owner of a mark's location to an exception message.
+
+    :param Union[str,Exception] e: The error message or exception to format
+    :param pytest.Item node: A pytest item
+    :param pytest.Mark mark: The mark responsible for the error message
+    :return: A error message prefixed with locating information about the node that owns the mark
+    :rtype: str
+    """
+    if mark not in node.iter_markers(name=mark.name):
+        raise ValueError(f"Mark '{mark.name}' is not applied to '{node.nodeid}'")
+
+    return error_message_at_node(e, next((p for p in node.listchain() if mark in p.own_markers), node))
