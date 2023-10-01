@@ -63,6 +63,7 @@ extend-select = [
   "RUF",
   "PLE",
   "ANN",
+  "RUF",
 ]
 ignore = [
   "ANN101", # missing-type-self
