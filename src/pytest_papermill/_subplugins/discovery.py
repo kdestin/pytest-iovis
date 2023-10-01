@@ -10,6 +10,7 @@ class JupyterNotebookDiscoverer:
     """A pytest plugin that enables auto-discovery of Jupyter notebooks as pytest tests"""
 
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
+        """Make pytest.Collectors for Jupyter Notebooks"""
         if file_path.suffix in [".ipynb"]:
             return JupyterNotebookFile.from_parent(parent, path=file_path)
         return None

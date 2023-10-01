@@ -25,6 +25,10 @@ def run_note_book(
 
 class JupyterNotebookFile(pytest.File):
     def collect(self):
+        """Collect children pytest.Items for this collector
+
+        Return default auto-generated test function(s) for a notebook.
+        """
         yield JupyterNotebookTestFunction.from_parent(
             parent=self,
             name=run_note_book.__name__,
@@ -34,6 +38,10 @@ class JupyterNotebookFile(pytest.File):
 
 class JupyterNotebookTestFunction(pytest.Function):
     def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]):
+        """Return a representation of a test failure.
+
+        :param excinfo: Exception information for the failure.
+        """
         if isinstance(excinfo.value, pm.PapermillExecutionError):
             return "\n".join(excinfo.value.traceback)
         return super().repr_failure(excinfo)

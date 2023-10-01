@@ -18,6 +18,7 @@ class IPythonMarkupPlugin:
 
     @pytest.hookimpl(trylast=True)
     def pytest_configure(self, config: pytest.Config) -> None:
+        """Fetch the terminalreporter to determine whether to show color"""
         terminalreporter: Optional[object] = config.pluginmanager.get_plugin("terminalreporter")
         self.should_output_color = terminalreporter is not None and getattr(terminalreporter, "hasmarkup", False)
 
