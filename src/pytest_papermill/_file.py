@@ -11,7 +11,7 @@ def run_note_book(
     notebook_output_path: Path,
     notebook_parameters: Dict[str, Any],
     notebook_extra_arguments: Iterable[str],
-):
+) -> None:
     cast(
         NotebookNode,
         pm.execute_notebook(
@@ -24,7 +24,7 @@ def run_note_book(
 
 
 class JupyterNotebookFile(pytest.File):
-    def collect(self):
+    def collect(self) -> Iterable[pytest.Function]:
         """Collect children pytest.Items for this collector
 
         Return default auto-generated test function(s) for a notebook.
@@ -37,10 +37,12 @@ class JupyterNotebookFile(pytest.File):
 
 
 class JupyterNotebookTestFunction(pytest.Function):
-    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]):
+    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]) -> str:
         """Return a representation of a test failure.
 
         :param excinfo: Exception information for the failure.
+        :returns: The formatted exception
+        :rtype: str or _pytest._code.code.TerminalRepr
         """
         if isinstance(excinfo.value, pm.PapermillExecutionError):
             return "\n".join(excinfo.value.traceback)

@@ -62,5 +62,11 @@ extend-select = [
   "PTH",
   "RUF",
   "PLE",
+  "ANN",
 ]
+ignore = [
+  "ANN101", # missing-type-self
+  "ANN102", # missing-type-cls
+]
+
 line-length = 120
