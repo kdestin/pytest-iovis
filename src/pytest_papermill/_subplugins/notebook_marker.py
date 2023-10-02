@@ -133,4 +133,6 @@ class NotebookMarkerHandler:
 
         args = [self.validate_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers]
 
-        metafunc.parametrize(self.FIXTURE_NAME, args)
+        # Indirect Parameterization allow's for the user's input to be used as the test ID, and delay resolving it
+        # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
+        metafunc.parametrize(self.FIXTURE_NAME, args, indirect=True)

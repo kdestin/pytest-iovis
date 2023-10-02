@@ -1,15 +1,25 @@
+from pathlib import Path
+
 import pytest
 
 
 def test_notebook_path(testdir: pytest.Testdir) -> None:
+    notebook_path = Path("notebooks", "test.ipynb")
+    testdir.makefile("ipynb", **{str(notebook_path): ""})
     testdir.makepyfile(
-        """
-        def test_fixture(notebook_path):
+        f"""
+        from pathlib import Path
+
+        import pytest
+
+        @pytest.mark.notebook({str(notebook_path)!r})
+        def test_fixture(notebook_path: Path):
             assert notebook_path.is_absolute(), "notebook_path should be an absolute path"
+            assert notebook_path == Path({str(testdir.tmpdir)!r}, {str(notebook_path)!r})
     """
     )
 
-    res = testdir.runpytest()
+    res = testdir.runpytest("test_notebook_path.py")
 
     res.assert_outcomes(passed=1)
 

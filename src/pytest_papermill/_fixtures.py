@@ -1,9 +1,9 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterable, Optional, cast
 
 import pytest
 
-from ._subplugins import IPythonMarkupPlugin, NotebookMarkerHandler
+from ._subplugins import IPythonMarkupPlugin, NotebookMarkerArg, NotebookMarkerHandler
 
 
 @pytest.fixture()
@@ -22,7 +22,15 @@ def notebook_parameters() -> Dict[str, Any]:
 @pytest.fixture(name=NotebookMarkerHandler.FIXTURE_NAME)
 def notebook_path(request: pytest.FixtureRequest) -> Path:
     """Return the path to the notebook under test"""
-    return request.path
+
+    param: Optional[object] = getattr(request, "param", None)
+    if not isinstance(param, NotebookMarkerArg):
+        pytest.fail(
+            f"Fixture {notebook_path.__name__!r} requested from function without @pytest.mark.notebook marker.",
+            pytrace=False,
+        )
+
+    return cast(NotebookMarkerArg, param).resolved_path(request.node)
 
 
 @pytest.fixture()
