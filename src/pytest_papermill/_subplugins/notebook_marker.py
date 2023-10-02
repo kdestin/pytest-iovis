@@ -1,7 +1,7 @@
 import errno
 import os
 from pathlib import Path
-from typing import Callable, List, NoReturn, Union
+from typing import Callable, NoReturn, Union
 
 import pytest
 
@@ -21,6 +21,9 @@ class NotebookMarkerHandler:
 
     MARKER_NAME = notebook.__name__
     """The name of the marker managed by this plugin"""
+
+    FIXTURE_NAME = "notebook_path"
+    """The name of the fixture that will be parametrized by this plugin"""
 
     def pytest_configure(self, config: pytest.Config) -> None:
         """Register the marker handled by this plugin"""
@@ -82,10 +85,19 @@ class NotebookMarkerHandler:
 
         return abs_path
 
-    def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
-        def on_validation_error(e: Union[str, Exception], item: pytest.Item, mark: pytest.Mark) -> NoReturn:
-            raise pytest.UsageError(error_message_at_mark_owner(e, item, mark))
+    def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
+        """Generate a test function for each applied @pytest.mark.notebook mark by parametrizing the `notebook_path`
+        argument.
+        """
 
-        for i in items:
-            for m in i.iter_markers(name=self.MARKER_NAME):
-                self.normalize_marker_args(i, m, on_error=on_validation_error)
+        def on_validation_error(e: Union[str, Exception], item: pytest.Item, mark: pytest.Mark) -> NoReturn:
+            pytest.fail(error_message_at_mark_owner(e, item, mark), pytrace=False)
+
+        markers = list(metafunc.definition.iter_markers(name=self.MARKER_NAME))
+
+        if not markers:
+            return
+
+        paths = [self.normalize_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers]
+
+        metafunc.parametrize(self.FIXTURE_NAME, paths)

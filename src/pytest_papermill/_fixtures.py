@@ -3,7 +3,7 @@ from typing import Any, Dict, Iterable, Optional
 
 import pytest
 
-from ._subplugins import IPythonMarkupPlugin
+from ._subplugins import IPythonMarkupPlugin, NotebookMarkerHandler
 
 
 @pytest.fixture()
@@ -19,7 +19,7 @@ def notebook_parameters() -> Dict[str, Any]:
     return {}
 
 
-@pytest.fixture()
+@pytest.fixture(name=NotebookMarkerHandler.FIXTURE_NAME)
 def notebook_path(request: pytest.FixtureRequest) -> Path:
     """Return the path to the notebook under test"""
     return request.path
