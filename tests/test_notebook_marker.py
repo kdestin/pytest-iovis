@@ -128,7 +128,7 @@ def test_single_marker_applied(testdir: pytest.Testdir) -> None:
     num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
     assert num_collected_tests == 1
-    res.stdout.fnmatch_lines(["<Module tests/test.py>", "  <Function test_marker[[]notebook_path0]>", ""])
+    res.stdout.fnmatch_lines(["<Module tests/test.py>", f"  <Function test_marker[[]{notebook_path}]>", ""])
 
 
 def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
@@ -159,9 +159,9 @@ def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(
         [
             "<Module tests/test.py>",
-            "  <Function test_marker[[]notebook_path0]>",
-            "  <Function test_marker[[]notebook_path1]>",
-            "  <Function test_marker[[]notebook_path2]>",
+            f"  <Function test_marker[[]{notebook_paths[0]}]>",
+            f"  <Function test_marker[[]{notebook_paths[1]}]>",
+            f"  <Function test_marker[[]{notebook_paths[2]}]>",
             "",
         ]
     )

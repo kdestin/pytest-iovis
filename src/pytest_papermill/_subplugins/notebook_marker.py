@@ -1,19 +1,41 @@
 import errno
 import os
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, NoReturn, Union
+from typing import Callable, NoReturn, Optional, Union, cast
 
 import pytest
 
 from .._utils import error_message_at_mark_owner, make_mark_description
 
 
-def notebook(path: Union[os.PathLike, str]) -> Path:
+@dataclass
+class NotebookMarkerArg:
+    original_path: Union[os.PathLike, str]
+    """The untouched argument provided by the user in the notebook marker"""
+
+    def resolved_path(self, item: pytest.Item) -> Path:
+        """Resolve the path argument relative to the location of the pytest Item.
+
+        :param pytest.Item item: The pytest item to resolve the path relative to
+        :return: Either
+            * The original path if it is absolute
+            * An absolute path formed by resolving `path` relative to the path of the pytest item
+        :rtype: Path
+        """
+        return (
+            Path(self.original_path)
+            if Path(self.original_path).is_absolute()
+            else Path(item.path.parent, self.original_path).resolve()
+        )
+
+
+def notebook(path: Union[os.PathLike, str]) -> NotebookMarkerArg:
     """Associate a test function with a Jupyter Notebook.
 
     This function is only used to generate documentation for the `notebook` marker (docstring + signature)
     """
-    return path
+    return NotebookMarkerArg(original_path=path)
 
 
 class NotebookMarkerHandler:
@@ -31,13 +53,13 @@ class NotebookMarkerHandler:
         config.addinivalue_line("markers", make_mark_description(notebook))
 
     @staticmethod
-    def normalize_marker_args(
+    def validate_marker_args(
         item: pytest.Item,
         mark: pytest.Mark,
         *,
         on_error: Callable[[Union[str, Exception], pytest.Item, pytest.Mark], NoReturn],
-    ) -> Path:
-        """Normalize and return the arguments of the pytest marker. If args are invalid and can't be normalized,
+    ) -> NotebookMarkerArg:
+        """Validate and return the arguments of the pytest marker. If args are invalid and can't be normalized,
         call on_error
 
         :param pytest.Item item: The pytest item the mark was found on
@@ -67,7 +89,7 @@ class NotebookMarkerHandler:
         exception = None
         try:
             # Validate the marker parameters
-            path = notebook(*mark.args, **mark.kwargs)
+            args = notebook(*mark.args, **mark.kwargs)
         except TypeError as e:
             # Save the exception so on_error is called outside the context of an ongoing exception
             exception = e
@@ -75,7 +97,7 @@ class NotebookMarkerHandler:
         if exception is not None:
             on_error(exception, item, mark)
 
-        abs_path = Path(path) if Path(path).is_absolute() else Path(item.path.parent, path).resolve()
+        abs_path = args.resolved_path(item)
 
         if not abs_path.exists():
             on_error(FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(abs_path)), item, mark)
@@ -83,7 +105,14 @@ class NotebookMarkerHandler:
         if not abs_path.is_file():
             on_error(f"Not a file '{abs_path}'", item, mark)
 
-        return abs_path
+        return args
+
+    def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
+        """Use the strigified argument the user provided as the parametrization ID."""
+        if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):
+            return None
+
+        return f"{(cast(NotebookMarkerArg, val).original_path)}"
 
     def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
         """Generate a test function for each applied @pytest.mark.notebook mark by parametrizing the `notebook_path`
@@ -98,6 +127,10 @@ class NotebookMarkerHandler:
         if not markers:
             return
 
-        paths = [self.normalize_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers]
+        # Markers are returned from closest to furthers from the function definition. Reversing the order makes
+        # the collection report more closely match the source.
+        markers.reverse()
 
-        metafunc.parametrize(self.FIXTURE_NAME, paths)
+        args = [self.validate_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers]
+
+        metafunc.parametrize(self.FIXTURE_NAME, args)
