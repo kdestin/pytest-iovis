@@ -1,9 +1,12 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Union, cast
 
 import papermill as pm
 import pytest
 from nbformat import NotebookNode
+
+if TYPE_CHECKING:
+    from _pytest._code.code import TerminalRepr
 
 
 def run_note_book(
@@ -37,7 +40,7 @@ class JupyterNotebookFile(pytest.File):
 
 
 class JupyterNotebookTestFunction(pytest.Function):
-    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]) -> str:
+    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]) -> Union[str, "TerminalRepr"]:
         """Return a representation of a test failure.
 
         :param excinfo: Exception information for the failure.
