@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Union, cast
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Union, cast
 
 import papermill as pm
 import pytest
@@ -7,6 +7,7 @@ from nbformat import NotebookNode
 
 if TYPE_CHECKING:
     from _pytest._code.code import TerminalRepr
+    from _pytest.nodes import Node
 
 
 def run_note_book(
@@ -52,7 +53,7 @@ class JupyterNotebookTestFunction(pytest.Function):
         return super().repr_failure(excinfo)
 
     @classmethod
-    def from_function(cls, parent: pytest.Collector, other: pytest.Function) -> "JupyterNotebookTestFunction":
+    def from_function(cls, parent: Optional["Node"], other: pytest.Function) -> "JupyterNotebookTestFunction":
         """Create a JupyterNotebookTestFunction as a copy of a pytest.Function.
 
         :param pytest.Collector parent: The pytest.Collector to set as the parent.
