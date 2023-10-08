@@ -47,3 +47,24 @@ class JupyterNotebookTestFunction(pytest.Function):
         if isinstance(excinfo.value, pm.PapermillExecutionError):
             return "\n".join(excinfo.value.traceback)
         return super().repr_failure(excinfo)
+
+    @classmethod
+    def from_function(cls, parent: pytest.Collector, other: pytest.Function) -> "JupyterNotebookTestFunction":
+        """Create a JupyterNotebookTestFunction as a copy of a pytest.Function.
+
+        :param pytest.Collector parent: The pytest.Collector to set as the parent.
+        :param pytest.Function other: The pytest.Function to copy fields from.
+        :return: A JupyterNotebookTestFunction
+        :rtype: JupyterNotebookTestFunction
+        """
+
+        return cls.from_parent(
+            name=other.name,
+            parent=parent,
+            callobj=other.obj,
+            callspec=getattr(other, "callspec", None),
+            # Accessing private attribute, but parametrization breaks without it
+            fixtureinfo=other._fixtureinfo,
+            keywords=other.keywords,
+            originalname=other.originalname,
+        )

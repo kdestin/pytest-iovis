@@ -128,7 +128,9 @@ def test_single_marker_applied(testdir: pytest.Testdir) -> None:
     num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
     assert num_collected_tests == 1
-    res.stdout.fnmatch_lines(["<Module tests/test.py>", f"  <Function test_marker[[]{notebook_path}]>", ""])
+    res.stdout.fnmatch_lines(
+        ["<Module tests/test.py>", f"  <JupyterNotebookTestFunction test_marker[[]{notebook_path}]>", ""]
+    )
 
 
 def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
@@ -159,9 +161,9 @@ def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(
         [
             "<Module tests/test.py>",
-            f"  <Function test_marker[[]{notebook_paths[0]}]>",
-            f"  <Function test_marker[[]{notebook_paths[1]}]>",
-            f"  <Function test_marker[[]{notebook_paths[2]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[1]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[2]}]>",
             "",
         ]
     )
@@ -201,9 +203,9 @@ def test_duplicated_markers_applied(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(
         [
             "<Module tests/test.py>",
-            f"  <Function test_marker[[]{notebook_paths[0]}]>",
-            f"  <Function test_marker[[]{notebook_paths[1]}]>",
-            f"  <Function test_marker[[]{notebook_paths[2]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[1]}]>",
+            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[2]}]>",
             "",
         ]
     )

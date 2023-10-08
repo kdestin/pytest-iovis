@@ -2,10 +2,12 @@ import errno
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, NoReturn, Optional, Union, cast
+from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Union, cast
 
 import pytest
+from typing_extensions import TypeGuard
 
+from .._file import JupyterNotebookTestFunction
 from .._utils import error_message_at_mark_owner, make_mark_description
 
 
@@ -107,6 +109,11 @@ class NotebookMarkerHandler:
 
         return args
 
+    @classmethod
+    def is_marked_function(cls, item: pytest.Item) -> TypeGuard[pytest.Function]:
+        """Check whether the pytest.Item is a pytest.Function with the notebook marker applied."""
+        return isinstance(item, pytest.Function) and next(item.iter_markers(name=cls.MARKER_NAME), None) is not None
+
     def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
         """Use the strigified argument the user provided as the parametrization ID."""
         if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):
@@ -145,3 +152,9 @@ class NotebookMarkerHandler:
         # Indirect Parameterization allow's for the user's input to be used as the test ID, and delay resolving it
         # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
         metafunc.parametrize(self.FIXTURE_NAME, args, indirect=True)
+
+    def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
+        """Replace `@pytest.mark.notebook` marked `pytest.Function`s with JupyterNoteTestFunction."""
+        for i, item in enumerate(items):
+            if self.is_marked_function(item):
+                items[i] = JupyterNotebookTestFunction.from_function(item.parent, item)
