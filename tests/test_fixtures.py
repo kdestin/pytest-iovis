@@ -27,14 +27,24 @@ def test_notebook_path(testdir: pytest.Testdir) -> None:
 
 
 def test_notebook_output_path(testdir: pytest.Testdir) -> None:
+    notebook_path = Path("notebooks", "test.ipynb")
+
+    testdir.makefile("ipynb", **{str(notebook_path): ""})
     testdir.makepyfile(
-        """
-        def test_fixture(tmp_path, notebook_output_path):
+        f"""
+        from pathlib import Path
+
+        import pytest
+
+        @pytest.mark.notebook({str(notebook_path)!r})
+        def test_fixture(tmp_path: Path, notebook_output_path: Path):
+            assert notebook_output_path.is_absolute(), "notebook_path should be an absolute path"
             assert tmp_path in notebook_output_path.parents, "notebook_output_path should be in a temporary directory"
+            assert notebook_output_path.name == "test.output.ipynb"
     """
     )
 
-    res = testdir.runpytest()
+    res = testdir.runpytest("test_notebook_output_path.py")
 
     res.assert_outcomes(passed=1)
 
