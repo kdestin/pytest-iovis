@@ -165,3 +165,45 @@ def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
             "",
         ]
     )
+
+
+def test_duplicated_markers_applied(testdir: pytest.Testdir) -> None:
+    """Check that markers that refer to the same path are deduplicated."""
+    notebook_paths = [Path("notebooks", f"test{i}.ipynb").resolve() for i in range(3)]
+    testfile_path = Path("tests", "test.py")
+
+    testdir.makefile(".ipynb", **{str(p): "" for p in notebook_paths})
+    testdir.makepyfile(
+        **{
+            f"{testfile_path}": f"""
+        from pathlib import Path
+
+        import pytest
+
+        @pytest.mark.notebook({str(notebook_paths[0])!r})
+        @pytest.mark.notebook({str(Path(testdir.tmpdir, notebook_paths[0]))!r})
+        @pytest.mark.notebook({str(Path("notebooks", "..", notebook_paths[0]))!r})
+        @pytest.mark.notebook({str(notebook_paths[1])!r})
+        @pytest.mark.notebook({str(notebook_paths[2])!r})
+        @pytest.mark.notebook({str(notebook_paths[0])!r})
+        @pytest.mark.notebook(Path({str(notebook_paths[0])!r}))
+        def test_marker(notebook_path):
+            pass
+    """,
+        },
+    )
+
+    res = testdir.runpytest("--collect-only", str(testfile_path))
+    outcomes = res.parseoutcomes()
+    num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
+
+    assert num_collected_tests == 3
+    res.stdout.fnmatch_lines(
+        [
+            "<Module tests/test.py>",
+            f"  <Function test_marker[[]{notebook_paths[0]}]>",
+            f"  <Function test_marker[[]{notebook_paths[1]}]>",
+            f"  <Function test_marker[[]{notebook_paths[2]}]>",
+            "",
+        ]
+    )

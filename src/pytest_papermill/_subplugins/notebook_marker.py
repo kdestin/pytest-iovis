@@ -2,7 +2,7 @@ import errno
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, NoReturn, Optional, Union, cast
+from typing import Callable, Dict, Iterable, NoReturn, Optional, Union, cast
 
 import pytest
 
@@ -122,6 +122,13 @@ class NotebookMarkerHandler:
         def on_validation_error(e: Union[str, Exception], item: pytest.Item, mark: pytest.Mark) -> NoReturn:
             pytest.fail(error_message_at_mark_owner(e, item, mark), pytrace=False)
 
+        def deduplicate(args: Iterable[NotebookMarkerArg]) -> Iterable[NotebookMarkerArg]:
+            """Remove NotebookMarkerArgs whose resolved path as already been seen"""
+            d: Dict[Path, NotebookMarkerArg] = {}
+            for a in args:
+                d.setdefault(a.resolved_path(metafunc.definition), a)
+            return d.values()
+
         markers = list(metafunc.definition.iter_markers(name=self.MARKER_NAME))
 
         if not markers:
@@ -131,7 +138,9 @@ class NotebookMarkerHandler:
         # the collection report more closely match the source.
         markers.reverse()
 
-        args = [self.validate_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers]
+        args = deduplicate(
+            self.validate_marker_args(metafunc.definition, m, on_error=on_validation_error) for m in markers
+        )
 
         # Indirect Parameterization allow's for the user's input to be used as the test ID, and delay resolving it
         # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
