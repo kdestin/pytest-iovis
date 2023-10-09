@@ -1,7 +1,6 @@
 import inspect
 import re
-import types
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import pytest
 
@@ -9,7 +8,7 @@ if TYPE_CHECKING:
     from _pytest.nodes import Node
 
 
-def make_mark_description(mark_fn: types.FunctionType) -> str:
+def make_mark_description(mark_fn: Callable[..., object]) -> str:
     """Generates a string that can be used to programatically register a pytest marker from a function.
 
     .. example::
@@ -39,7 +38,10 @@ def make_mark_description(mark_fn: types.FunctionType) -> str:
         # Normalize any endlines into a single line
         return re.sub("\s*\n\s*", " ", short_description).strip()
 
-    name = mark_fn.__name__
+    name = getattr(mark_fn, "__name__", None)
+    if name is None:
+        raise ValueError(f"{mark_fn!r} does not have attribute __name__")
+
     signature_without_return = inspect.signature(mark_fn).replace(return_annotation=inspect.Signature.empty)
     return f"{name}{signature_without_return}: {get_short_description()}"
 
