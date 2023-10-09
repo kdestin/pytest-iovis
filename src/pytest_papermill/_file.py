@@ -41,7 +41,9 @@ class JupyterNotebookFile(pytest.File):
 
 
 class JupyterNotebookTestFunction(pytest.Function):
-    def repr_failure(self, excinfo: pytest.ExceptionInfo[BaseException]) -> Union[str, "TerminalRepr"]:
+    def repr_failure(  # type: ignore[override]
+        self, excinfo: pytest.ExceptionInfo[BaseException]
+    ) -> Union[str, "TerminalRepr"]:
         """Return a representation of a test failure.
 
         :param excinfo: Exception information for the failure.
