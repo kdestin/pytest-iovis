@@ -1,3 +1,4 @@
+import types
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union, cast
 
@@ -10,7 +11,7 @@ if TYPE_CHECKING:
     from _pytest.nodes import Node
 
 
-def run_note_book(
+def test_notebook_runs(
     notebook_path: Path,
     notebook_output_path: Path,
     notebook_parameters: Dict[str, Any],
@@ -27,21 +28,42 @@ def run_note_book(
     )
 
 
-class JupyterNotebookFile(pytest.File):
+class JupyterNotebookFile(pytest.Module):
+    """A collector for Jupyter Notebooks
+
+    Subclasses pytest.Module to leverage pytest features that are baked into the python implementation (e.g.
+    parameterization)
+    """
+
     def __init__(self, *args: object, test_functions: List[Callable[..., object]], **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self._test_functions = test_functions
         """The test functions to generate for the collected notebook."""
 
     def collect(self) -> Iterable[pytest.Function]:
-        """Collect children pytest.Items for this collector
+        """Collect children pytest.Items for this collector."""
+        for f in self._test_functions:
+            yield from (self.ihook.pytest_pycollect_makeitem(collector=self, name=f.__name__, obj=f) or [])
 
-        Return default auto-generated test function(s) for a notebook.
+    def _getobj(self) -> types.ModuleType:
+        """Get the underlying Python object.
+
+        .. note::
+
+            This is override is necessary but somewhat fragile, since `_getobj` is not part of pytest.Module's public
+            api. Collectors in _pytest.python use _getobj to fetch an instance of the actual object they represent
+            (Package, Module, Class, Function, etc...).
         """
-        yield from (
-            JupyterNotebookTestFunction.from_parent(parent=self, name=f.__name__, callobj=f)
-            for f in self._test_functions
-        )
+        module = types.ModuleType(name="jupyter_notebook_collector")
+
+        for f in self._test_functions:
+            # Need to add test functions to the module since pytest tries to access them
+            setattr(module, f.__name__, f)
+
+        # Apply the notebook mark to all test functions in the module
+        module.pytestmark = pytest.mark.notebook(self.path)  # type: ignore[attr-defined]
+
+        return module
 
 
 class JupyterNotebookTestFunction(pytest.Function):

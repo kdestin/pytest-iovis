@@ -4,7 +4,7 @@ from typing import Callable, List, Optional, cast
 import pytest
 from typing_extensions import TypeAlias
 
-from .._file import JupyterNotebookFile, run_note_book
+from .._file import JupyterNotebookFile, test_notebook_runs
 
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
@@ -40,7 +40,7 @@ class JupyterNotebookDiscoverer:
             return JupyterNotebookFile.from_parent(
                 parent,
                 path=file_path,
-                test_functions=parent.config.stash.get(self.TEST_FUNCTION_KEY, [run_note_book]),
+                test_functions=parent.config.stash.get(self.TEST_FUNCTION_KEY, [test_notebook_runs]),
             )
         return None
 
