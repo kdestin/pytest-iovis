@@ -20,8 +20,14 @@ plugin as follows:
     https://pluggy.readthedocs.io/en/latest/#define-and-collect-hooks
     https://docs.python.org/3/tutorial/classes.html#tut-scopes
 """
-from .discovery import JupyterNotebookDiscoverer
+from .discovery import JupyterNotebookDiscoverer, register_default_test_functions
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
 
-__all__ = ["IPythonMarkupPlugin", "JupyterNotebookDiscoverer", "NotebookMarkerArg", "NotebookMarkerHandler"]
+__all__ = [
+    "IPythonMarkupPlugin",
+    "JupyterNotebookDiscoverer",
+    "NotebookMarkerArg",
+    "NotebookMarkerHandler",
+    "register_default_test_functions",
+]

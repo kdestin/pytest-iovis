@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union, cast
 
 import papermill as pm
 import pytest
@@ -28,15 +28,19 @@ def run_note_book(
 
 
 class JupyterNotebookFile(pytest.File):
+    def __init__(self, *args: object, test_functions: List[Callable[..., object]], **kwargs: object) -> None:
+        super().__init__(*args, **kwargs)  # type: ignore[arg-type]
+        self._test_functions = test_functions
+        """The test functions to generate for the collected notebook."""
+
     def collect(self) -> Iterable[pytest.Function]:
         """Collect children pytest.Items for this collector
 
         Return default auto-generated test function(s) for a notebook.
         """
-        yield JupyterNotebookTestFunction.from_parent(
-            parent=self,
-            name=run_note_book.__name__,
-            callobj=run_note_book,
+        yield from (
+            JupyterNotebookTestFunction.from_parent(parent=self, name=f.__name__, callobj=f)
+            for f in self._test_functions
         )
 
 
