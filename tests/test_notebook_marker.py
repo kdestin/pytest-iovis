@@ -1,4 +1,6 @@
+import os
 from pathlib import Path
+from typing import Callable, Optional, Union
 
 import pytest
 
@@ -209,3 +211,140 @@ def test_duplicated_markers_applied(testdir: pytest.Testdir) -> None:
             "",
         ]
     )
+
+
+class TestDefaultFunctionsRemoved:
+    """Tests that check that automatically generated tests for notebooks are removed when a user-defined one exists."""
+
+    def test_with_default_test_function(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+        """Check that a user defined test function for notebook removes the automatically generated test functions."""
+        testfile_path = Path("tests", "test.py")
+
+        testdir.makepyfile(
+            **{
+                f"{testfile_path}": f"""
+            from pathlib import Path
+
+            import pytest
+
+            @pytest.mark.notebook({str(dummy_notebook)!r})
+            def test_marker(notebook_path):
+                pass
+        """,
+            },
+        )
+
+        res = testdir.runpytest("--collect-only", str(testfile_path), str(dummy_notebook), "-v")
+
+        outcomes = res.parseoutcomes()
+        num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
+
+        with pytest.raises(AssertionError):
+            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
+            # This assertion always fails
+            assert num_collected_tests == 1
+
+        res.stdout.fnmatch_lines(
+            [
+                "<Module tests/test.py>",
+                f"  <JupyterNotebookTestFunction test_marker[[]{dummy_notebook}]>",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_does_not_affect_non_overriden_functions(
+        self, dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path], testdir: pytest.Testdir
+    ) -> None:
+        """Check that non overriden functions are unaffected."""
+        notebook_paths = [str(dummy_notebook_factory(Path("notebooks", f"test{i}.ipynb"))) for i in range(3)]
+        testfile_path = Path("tests", "test.py")
+
+        testdir.makepyfile(
+            **{
+                f"{testfile_path}": f"""
+            from pathlib import Path
+
+            import pytest
+
+            @pytest.mark.notebook({notebook_paths[0]!r})
+            def test_marker(notebook_path):
+                pass
+        """,
+            },
+        )
+
+        res = testdir.runpytest("--collect-only", str(testfile_path), *notebook_paths, "-v")
+
+        outcomes = res.parseoutcomes()
+        num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
+
+        with pytest.raises(AssertionError):
+            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
+            # This assertion always fails
+            assert num_collected_tests == 3
+
+        res.stdout.fnmatch_lines(
+            [
+                "<Module tests/test.py>",
+                f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
+                "<JupyterNotebookFile notebooks/test1.ipynb>",
+                f"  <JupyterNotebookTestFunction test_notebook_runs[[]{notebook_paths[1]}]>",
+                "<JupyterNotebookFile notebooks/test2.ipynb>",
+                f"  <JupyterNotebookTestFunction test_notebook_runs[[]{notebook_paths[2]}]>",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_with_user_test_functions(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+        """Check that a user defined test function for notebook removes the automatically generated test functions."""
+        testfile_path = Path("tests", "test.py")
+
+        testdir.makeconftest(
+            """
+            from pytest_papermill import register_default_test_functions
+
+            def test_notebook_1(notebook_path):
+                pass
+
+            def test_notebook_2(notebook_path):
+                pass
+
+            def pytest_configure(config):
+                register_default_test_functions(test_notebook_1, test_notebook_2, config=config)
+            """
+        )
+
+        testdir.makepyfile(
+            **{
+                f"{testfile_path}": f"""
+            from pathlib import Path
+
+            import pytest
+
+            @pytest.mark.notebook({str(dummy_notebook)!r})
+            def test_marker(notebook_path):
+                pass
+        """,
+            },
+        )
+
+        res = testdir.runpytest("--collect-only", str(testfile_path), str(dummy_notebook), "-v")
+
+        outcomes = res.parseoutcomes()
+        num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
+
+        with pytest.raises(AssertionError):
+            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
+            # This assertion always fails
+            assert num_collected_tests == 1
+
+        res.stdout.fnmatch_lines(
+            [
+                "<Module tests/test.py>",
+                f"  <JupyterNotebookTestFunction test_marker[[]{dummy_notebook}]>",
+                "",
+            ],
+            consecutive=True,
+        )
