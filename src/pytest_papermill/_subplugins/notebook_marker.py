@@ -146,6 +146,7 @@ class NotebookMarkerHandler:
         except ValueError:
             return None
 
+    @pytest.hookimpl(trylast=True)
     def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
         """Use the strigified argument the user provided as the parametrization ID."""
         if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):

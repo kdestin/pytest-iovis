@@ -1,3 +1,4 @@
+import uuid
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
@@ -5,12 +6,32 @@ import pytest
 
 from .._file import JupyterNotebookFile, JupyterNotebookTestFunction
 from .._utils import partition
-from .notebook_marker import NotebookMarkerHandler
+from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
 
 
 class NotebookGrouper:
     PLUGIN_NAME = "grouping"
     """A user facing name that describes this plugin."""
+
+    __PLACEHOLDER_NOTEBOOK_PARAMSET_ID = f"{uuid.uuid4()}{uuid.uuid4()}"
+
+    def pytest_make_parametrize_id(self, argname: str, val: object) -> Optional[str]:
+        """Return a placeholder ID when parametrizing on the notebook path fixture that can be later removed."""
+        if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):
+            return None
+
+        return self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
+        """Remove the placeholder notebook name from the callspec ID list."""
+        markers = list(metafunc.definition.iter_markers(name=NotebookMarkerHandler.MARKER_NAME))
+
+        if not markers:
+            return
+
+        for c in metafunc._calls:
+            c._idlist[:] = [s for s in c._idlist if not s.startswith(self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID)]
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(self, session: pytest.Session, items: List[pytest.Item]) -> None:
@@ -79,6 +100,10 @@ class NotebookGrouper:
         reparent = make_reparent(session)
 
         for i, item in enumerate(notebook_functions):
+            # Remove empty parameterization brackets
+            if item.name.endswith("[]"):
+                item.name = item.name[:-2]
+
             newParent = reparent(item)
 
             # This is _should_ never happen

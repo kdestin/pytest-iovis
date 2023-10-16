@@ -105,6 +105,4 @@ def test_default_test_function_runs_successfully(
 
     res.assert_outcomes(passed=1)
 
-    res.stdout.fnmatch_lines(
-        f"test_default_test_function_runs_successfully.ipynb::test_notebook_runs[[]{dummy_notebook}] PASSED*"
-    )
+    res.stdout.fnmatch_lines("test_default_test_function_runs_successfully.ipynb::test_notebook_runs PASSED*")
