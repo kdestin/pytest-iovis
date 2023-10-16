@@ -43,6 +43,9 @@ def notebook(path: Union[os.PathLike, str]) -> NotebookMarkerArg:
 class NotebookMarkerHandler:
     """A pytest plugin that manages the semantics of the `@pytest.mark.notebook` mark."""
 
+    PLUGIN_NAME = "notebook_marker"
+    """A user facing name that describes this plugin."""
+
     MARKER_NAME = notebook.__name__
     """The name of the marker managed by this plugin"""
 

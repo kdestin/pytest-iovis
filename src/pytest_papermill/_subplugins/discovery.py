@@ -112,6 +112,8 @@ class JupyterNotebookDiscoverer:
             pytest.File collectors have been collected.
     """
 
+    PLUGIN_NAME = "notebook_discovery"
+    """A user facing name that describes this plugin."""
     TEST_FUNCTION_KEY = pytest.StashKey[List[T_OpaqueCallable]]()
     """A stash key that stores callables used as test functions for collected notebooks. Meant to be used on config."""
     __USER_DEFINED_PATHS_KEY = pytest.StashKey[Set[Path]]()

@@ -8,6 +8,9 @@ class IPythonMarkupPlugin:
     """A pytest plugin that generates IPython commandline arguments that can be used to match pytest and IPython's
     markup settings"""
 
+    PLUGIN_NAME = "ipython_markup"
+    """A user facing name that describes this plugin"""
+
     def __init__(self) -> None:
         self.style_name: Optional[str] = os.getenv("PYTEST_THEME")
         """The pygments style name to forward to IPython. None
