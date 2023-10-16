@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Union, cast
 
 import pytest
-from typing_extensions import TypeGuard
+from typing_extensions import Self, TypeGuard
 
 from .._file import JupyterNotebookTestFunction
 from .._utils import error_message_at_mark_owner, make_mark_description
@@ -16,28 +16,39 @@ class NotebookMarkerArg:
     original_path: Union[os.PathLike, str]
     """The untouched argument provided by the user in the notebook marker"""
 
-    def resolved_path(self, item: pytest.Item) -> Path:
-        """Resolve the path argument relative to the location of the pytest Item.
+    resolved_path: Path
+    """The absolute path to the file the notebook arg was pointed at.
 
-        :param pytest.Item item: The pytest item to resolve the path relative to
-        :return: Either
-            * The original path if it is absolute
-            * An absolute path formed by resolving `path` relative to the path of the pytest item
-        :rtype: Path
+    This will either be:
+      * The original path if it was absolute
+      * An absolute path formed by resolving `path` relative to the path of the pytest.Item
+    """
+
+    @classmethod
+    def from_item(cls, item: pytest.Item, original_path: Union[os.PathLike, str]) -> Self:
+        """Create a new object, using the pytest.Item's path to resolve the notebook path.
+
+        :param pytest.Item item: The pytest Item the marker was applied to
+        :param original_path: The original argument the user provided to @pytest.mark.notebook
+        :type original_path: Union[os.PathLike, str]
+        :return: A NotebookMarkerArg
+        :rtype: NotebookMarkerArg
         """
-        return (
-            Path(self.original_path)
-            if Path(self.original_path).is_absolute()
-            else Path(item.path.parent, self.original_path).resolve()
+        resolved_path = (
+            Path(original_path)
+            if Path(original_path).is_absolute()
+            else Path(item.path.parent, original_path).resolve()
         )
 
+        return cls(original_path=original_path, resolved_path=resolved_path)
 
-def notebook(path: Union[os.PathLike, str]) -> NotebookMarkerArg:
+
+def notebook(path: Union[os.PathLike, str]) -> Union[os.PathLike, str]:
     """Associate a test function with a Jupyter Notebook.
 
     This function is only used to generate documentation for the `notebook` marker (docstring + signature)
     """
-    return NotebookMarkerArg(original_path=path)
+    return path
 
 
 class NotebookMarkerHandler:
@@ -94,7 +105,7 @@ class NotebookMarkerHandler:
         exception = None
         try:
             # Validate the marker parameters
-            args = notebook(*mark.args, **mark.kwargs)
+            original_arg = notebook(*mark.args, **mark.kwargs)
         except TypeError as e:
             # Save the exception so on_error is called outside the context of an ongoing exception
             exception = e
@@ -102,7 +113,8 @@ class NotebookMarkerHandler:
         if exception is not None:
             on_error(exception, item, mark)
 
-        abs_path = args.resolved_path(item)
+        args = NotebookMarkerArg.from_item(item, original_arg)
+        abs_path = args.resolved_path
 
         if not abs_path.exists():
             on_error(FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT), str(abs_path)), item, mark)
@@ -130,7 +142,7 @@ class NotebookMarkerHandler:
 
         try:
             args = cast(NotebookMarkerArg, item.callspec.getparam(cls.FIXTURE_NAME))
-            return args.resolved_path(item)
+            return args.resolved_path
         except ValueError:
             return None
 
@@ -153,7 +165,7 @@ class NotebookMarkerHandler:
             """Remove NotebookMarkerArgs whose resolved path as already been seen"""
             d: Dict[Path, NotebookMarkerArg] = {}
             for a in args:
-                d.setdefault(a.resolved_path(metafunc.definition), a)
+                d.setdefault(a.resolved_path, a)
             return d.values()
 
         markers = list(metafunc.definition.iter_markers(name=self.MARKER_NAME))

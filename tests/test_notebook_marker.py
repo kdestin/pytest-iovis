@@ -5,6 +5,13 @@ from typing import Callable, Optional, Union
 import pytest
 
 
+@pytest.fixture()
+def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
+    """Return the testdir fixutre, but ensure that the grouping subplugin is disabled and doesn't affect output."""
+    monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:papermill.grouping")
+    return testdir
+
+
 def test_notebook_marker_documentation(testdir: pytest.Testdir) -> None:
     """Check that `pytest --markers` displays a help message for @pytest.mark.notebook"""
     res = testdir.runpytest("--markers")

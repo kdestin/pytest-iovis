@@ -21,12 +21,14 @@ plugin as follows:
     https://docs.python.org/3/tutorial/classes.html#tut-scopes
 """
 from .discovery import JupyterNotebookDiscoverer, register_default_test_functions
+from .grouping import NotebookGrouper
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
 
 __all__ = [
     "IPythonMarkupPlugin",
     "JupyterNotebookDiscoverer",
+    "NotebookGrouper",
     "NotebookMarkerArg",
     "NotebookMarkerHandler",
     "register_default_test_functions",

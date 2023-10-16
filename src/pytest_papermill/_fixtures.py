@@ -30,7 +30,7 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
             pytrace=False,
         )
 
-    return cast(NotebookMarkerArg, param).resolved_path(request.node)
+    return cast(NotebookMarkerArg, param).resolved_path
 
 
 @pytest.fixture()
