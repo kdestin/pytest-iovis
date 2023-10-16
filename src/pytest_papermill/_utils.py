@@ -1,11 +1,15 @@
 import inspect
 import re
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Iterable, List, Optional, Tuple, TypeVar, Union, overload
 
 import pytest
+from typing_extensions import TypeGuard
 
 if TYPE_CHECKING:
     from _pytest.nodes import Node
+
+T = TypeVar("T")
+T2 = TypeVar("T2")
 
 
 def make_mark_description(mark_fn: Callable[..., object]) -> str:
@@ -70,3 +74,35 @@ def error_message_at_mark_owner(e: Union[str, Exception], node: "Node", mark: py
         raise ValueError(f"Mark '{mark.name}' is not applied to '{node.nodeid}'")
 
     return error_message_at_node(e, next((p for p in node.listchain() if mark in p.own_markers), node))
+
+
+@overload
+def partition(iis: Iterable[T], predicate: Callable[[T], TypeGuard[T2]]) -> Tuple[List[T2], List[T]]:
+    ...
+
+
+@overload
+def partition(iis: Iterable[T], predicate: Callable[[T], bool]) -> Tuple[List[T], List[T]]:
+    ...
+
+
+def partition(
+    iis: Iterable[T], predicate: Union[Callable[[T], bool], Callable[[T], TypeGuard[T2]]]
+) -> Tuple[List[Any], List[T]]:
+    """Partition a list of objects into a list of objects that satisfy the predicate, and a list that don't.
+
+    :param Iterable[T] iis: An iterable of objects
+    :param predicate: The predicate to apply to the objects in the iterable
+    :type predicate: Callable[[T], bool]
+    :return: A 2-tuple where:
+      * The first item is a list of objects that satisfy the predicate
+      * The second item is a list of objects that don't satisfy the predicate
+    :rtype: Tuple[List[T], List[T]]
+    """
+    yes: List[T] = []
+    no: List[T] = []
+
+    for i in iis:
+        (yes if predicate(i) else no).append(i)
+
+    return yes, no

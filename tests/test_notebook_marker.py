@@ -239,10 +239,7 @@ class TestDefaultFunctionsRemoved:
         outcomes = res.parseoutcomes()
         num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
-        with pytest.raises(AssertionError):
-            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
-            # This assertion always fails
-            assert num_collected_tests == 1
+        assert num_collected_tests == 1
 
         res.stdout.fnmatch_lines(
             [
@@ -279,10 +276,7 @@ class TestDefaultFunctionsRemoved:
         outcomes = res.parseoutcomes()
         num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
-        with pytest.raises(AssertionError):
-            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
-            # This assertion always fails
-            assert num_collected_tests == 3
+        assert num_collected_tests == 3
 
         res.stdout.fnmatch_lines(
             [
@@ -335,10 +329,7 @@ class TestDefaultFunctionsRemoved:
         outcomes = res.parseoutcomes()
         num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
-        with pytest.raises(AssertionError):
-            # pytest "remembers" how many tests have ever been collected, even if they are later removed by a plugin
-            # This assertion always fails
-            assert num_collected_tests == 1
+        assert num_collected_tests == 1
 
         res.stdout.fnmatch_lines(
             [

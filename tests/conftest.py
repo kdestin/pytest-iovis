@@ -18,7 +18,7 @@ def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[
     notebook_string = nbformat.writes(nb)
 
     @functools.wraps(dummy_notebook_factory)
-    def toReturn(filename: Optional[str] = None) -> Path:
+    def toReturn(filename: Optional[Union[os.PathLike, str]] = None) -> Path:
         if filename:
             return Path(testdir.makefile(".ipynb", **{str(Path(filename).with_suffix("")): notebook_string}))
         return Path(testdir.makefile(".ipynb", notebook_string))
