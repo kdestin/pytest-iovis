@@ -5,8 +5,7 @@ import pytest
 
 
 class IPythonMarkupPlugin:
-    """A pytest plugin that generates IPython commandline arguments that can be used to match pytest and IPython's
-    markup settings"""
+    """Generates IPython commandline arguments that can be used to match pytest and IPython's markup settings."""
 
     PLUGIN_NAME = "ipython_markup"
     """A user facing name that describes this plugin"""
@@ -21,13 +20,12 @@ class IPythonMarkupPlugin:
 
     @pytest.hookimpl(trylast=True)
     def pytest_configure(self, config: pytest.Config) -> None:
-        """Fetch the terminalreporter to determine whether to show color"""
+        """Fetch the terminalreporter to determine whether to show color."""
         terminalreporter: Optional[object] = config.pluginmanager.get_plugin("terminalreporter")
         self.should_output_color = terminalreporter is not None and getattr(terminalreporter, "hasmarkup", False)
 
     def get_ipython_markup_arg(self) -> str:
-        """Returns an IPykernel argument that controls the colors used for syntax highlighting"""
-
+        """Return an IPykernel argument that controls the colors used for syntax highlighting."""
         if not self.should_output_color:
             return "--InteractiveShell.colors=NoColor"
 

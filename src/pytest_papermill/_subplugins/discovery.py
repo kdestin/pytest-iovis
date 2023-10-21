@@ -63,8 +63,7 @@ class FileDelayer(Generic[T_File]):
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
-        """Initialize session variables"""
-
+        """Initialize session variables."""
         session.stash[self._DELAYED_KEY] = cast(List[T_File], [])
         session.stash[self._REMAINING_CALLS_KEY] = 1  # Start at 1 since collect is always called on the session itself
 
@@ -150,7 +149,7 @@ class JupyterNotebookDiscoverer:
         config.pluginmanager.register(FileDelayer(JupyterNotebookFile), name=self.__DELAYER_NAME)
 
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
-        """Make pytest.Collectors for Jupyter Notebooks"""
+        """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
             return JupyterNotebookFile.from_parent(
                 parent,
@@ -161,8 +160,7 @@ class JupyterNotebookDiscoverer:
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
-        """Initialize session variables"""
-
+        """Initialize session variables."""
         session.stash[self.__USER_DEFINED_PATHS_KEY] = cast(Set[Path], set())
 
         yield
@@ -171,8 +169,11 @@ class JupyterNotebookDiscoverer:
 
     @pytest.hookimpl(hookwrapper=True)
     def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pluggy.Result, None]:
-        """Reorder collectors so that JupyterNotebookFile collectors are collected after every other pytest.File.
-        Any JupyterNotebookFile whose path refers to the path argument of @pytest.mark.notebooko mark is removed.
+        """Remove JupyterNotebookFile collectors that don't need to be collected.
+
+        The JupyterNotebookFile collectors created by this class are unneeded if the user has written at least one
+        test function for the collected file. This function delays the collection of JupyterNotebookFiles so that
+        unneeded collectors can be removed.
         """
         result: pluggy.Result = yield
 

@@ -4,7 +4,6 @@ import pytest
 
 def test_subplugin_names(testdir: pytest.Testdir) -> None:
     """Verify that subplugins are registered with expected names."""
-
     testdir.makepyfile(
         """
         from pytest_papermill._subplugins import IPythonMarkupPlugin, JupyterNotebookDiscoverer, NotebookMarkerHandler

@@ -29,7 +29,7 @@ def test_notebook_runs(
 
 
 class JupyterNotebookFile(pytest.Module):
-    """A collector for Jupyter Notebooks
+    """A collector for Jupyter Notebooks.
 
     Subclasses pytest.Module to leverage pytest features that are baked into the python implementation (e.g.
     parameterization)
@@ -42,7 +42,6 @@ class JupyterNotebookFile(pytest.Module):
 
     def collect(self) -> Iterable[pytest.Function]:
         """Collect children pytest.Items for this collector."""
-
         for f in self._test_functions:
             yield from self.ihook.pytest_pycollect_makeitem(collector=self, name=f.__name__, obj=f) or []
 
@@ -90,7 +89,6 @@ class JupyterNotebookTestFunction(pytest.Function):
         :return: A JupyterNotebookTestFunction
         :rtype: JupyterNotebookTestFunction
         """
-
         item = cls.from_parent(
             name=other.name,
             parent=parent,

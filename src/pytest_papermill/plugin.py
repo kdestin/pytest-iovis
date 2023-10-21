@@ -7,7 +7,7 @@ from ._subplugins import IPythonMarkupPlugin, JupyterNotebookDiscoverer, Noteboo
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """Register sub-plugins"""
+    """Register sub-plugins."""
     # The name of this plugin
     plugin_name = config.pluginmanager.get_name(sys.modules[__name__])
 

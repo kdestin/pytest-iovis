@@ -1,5 +1,4 @@
-"""A collection of small-ish 'sub-plugins' that implement the majority
-of this plugin's functionality.
+"""A collection of small-ish 'sub-plugins'.
 
 A pytest plugin (i.e. a _pluggy_ plugin) is a namespace that contains
 implementations of predefined hook functions. A namespace can notably

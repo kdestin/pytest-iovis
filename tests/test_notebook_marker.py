@@ -13,7 +13,7 @@ def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.
 
 
 def test_notebook_marker_documentation(testdir: pytest.Testdir) -> None:
-    """Check that `pytest --markers` displays a help message for @pytest.mark.notebook"""
+    """Check that `pytest --markers` displays a help message for @pytest.mark.notebook."""
     res = testdir.runpytest("--markers")
 
     res.stdout.fnmatch_lines(
@@ -25,7 +25,7 @@ def test_notebook_marker_documentation(testdir: pytest.Testdir) -> None:
 
 class TestErrorMessages:
     def test_file_doesnt_exist(self, testdir: pytest.Testdir) -> None:
-        """Verify that a reasonable error message is shown when the path doesn't exist"""
+        """Verify that a reasonable error message is shown when the path doesn't exist."""
         nonexistant_path = Path("path", "does", "not", "exist.ipynb")
 
         testdir.makepyfile(
@@ -46,7 +46,7 @@ class TestErrorMessages:
         assert res.ret != 0
 
     def test_not_a_file(self, testdir: pytest.Testdir) -> None:
-        """Verify that a reasonable error message is shown when path does exist but isn't a file"""
+        """Verify that a reasonable error message is shown when path does exist but isn't a file."""
         not_a_file = "not_a_file.ipynb"
 
         testdir.mkdir(not_a_file)
@@ -71,7 +71,7 @@ class TestErrorMessages:
         "marker", ["not_a_keyword_param=None", "'path1.ipynb', 'path2.ipynb'"], ids=lambda args: f"notebook({args})"
     )
     def test_incorrect_function_call(self, testdir: pytest.Testdir, marker: str) -> None:
-        """Verify that we show an error message if notebook marker is invoked incorrectly"""
+        """Verify that we show an error message if notebook marker is invoked incorrectly."""
         testdir.makepyfile(
             f"""
             import pytest

@@ -64,10 +64,14 @@ extend-select = [
   "PLE",
   "ANN",
   "RUF",
+  "D",
 ]
 ignore = [
   "ANN101", # missing-type-self
   "ANN102", # missing-type-cls
+  "D1",     # missing docstring in ...
+  "D203",   # one-blank-line-before-class
+  "D213",   # multi-line-summary-second-line
 ]
 
 line-length = 120

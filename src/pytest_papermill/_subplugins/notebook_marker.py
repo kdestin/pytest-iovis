@@ -64,8 +64,7 @@ class NotebookMarkerHandler:
     """The name of the fixture that will be parametrized by this plugin"""
 
     def pytest_configure(self, config: pytest.Config) -> None:
-        """Register the marker handled by this plugin"""
-
+        """Register the marker handled by this plugin."""
         config.addinivalue_line("markers", make_mark_description(notebook))
 
     @staticmethod
@@ -75,8 +74,9 @@ class NotebookMarkerHandler:
         *,
         on_error: Callable[[Union[str, Exception], pytest.Item, pytest.Mark], NoReturn],
     ) -> NotebookMarkerArg:
-        """Validate and return the arguments of the pytest marker. If args are invalid and can't be normalized,
-        call on_error
+        """Validate and return the arguments of the pytest marker.
+
+        If args are invalid and can't be normalized, call on_error.
 
         :param pytest.Item item: The pytest item the mark was found on
         :param pytest.Mark mark: A pytest mark
@@ -155,15 +155,13 @@ class NotebookMarkerHandler:
         return f"{(cast(NotebookMarkerArg, val).original_path)}"
 
     def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
-        """Generate a test function for each applied @pytest.mark.notebook mark by parametrizing the `notebook_path`
-        argument.
-        """
+        """Parametrize the `notebook_path` fixture to generate a test function for each notebook marker."""
 
         def on_validation_error(e: Union[str, Exception], item: pytest.Item, mark: pytest.Mark) -> NoReturn:
             pytest.fail(error_message_at_mark_owner(e, item, mark), pytrace=False)
 
         def deduplicate(args: Iterable[NotebookMarkerArg]) -> Iterable[NotebookMarkerArg]:
-            """Remove NotebookMarkerArgs whose resolved path as already been seen"""
+            """Remove NotebookMarkerArgs whose resolved path as already been seen."""
             d: Dict[Path, NotebookMarkerArg] = {}
             for a in args:
                 d.setdefault(a.resolved_path, a)
@@ -188,7 +186,6 @@ class NotebookMarkerHandler:
 
     def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
         """Replace `@pytest.mark.notebook` marked `pytest.Function`s with JupyterNoteTestFunction."""
-
         # marked pytest.Function -> JupyterNotebookTestFunction
         for i, item in enumerate(items):
             if self.is_marked_function(item):

@@ -7,7 +7,6 @@ import pytest
 
 def test_no_mark_on_test_function(testdir: pytest.Testdir) -> None:
     """Verify that collection isn't affected if the notebook marker is not present."""
-
     testdir.makepyfile(
         """
         def test_function():

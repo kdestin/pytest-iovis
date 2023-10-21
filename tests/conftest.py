@@ -11,8 +11,12 @@ pytest_plugins = ["pytester"]
 
 @pytest.fixture()
 def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[os.PathLike, str]]], Path]:
-    """A callable that returns a jupyter notebook that runs successfully at the specified path. A falsy argument
-    generates a test specific path."""
+    """Return a Callable that can be used to generate empty (dummy) notebooks.
+
+    The callable accepts either:
+        * A path that the notebook is written to
+        * A falsy value, which signals that any path may be used
+    """
     nb = nbformat.v4.new_notebook()
     nb["metadata"]["kernelspec"] = {"name": "python3", "language": "python", "display_name": "Python 3"}
     notebook_string = nbformat.writes(nb)
@@ -28,5 +32,5 @@ def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[
 
 @pytest.fixture()
 def dummy_notebook(dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path]) -> Path:
-    """A jupyter notebook that always runs successfully."""
+    """Return a Jupyter notebook that always runs successfully."""
     return dummy_notebook_factory(None)

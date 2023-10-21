@@ -35,8 +35,7 @@ class NotebookGrouper:
 
     @pytest.hookimpl(trylast=True)
     def pytest_collection_modifyitems(self, session: pytest.Session, items: List[pytest.Item]) -> None:
-        """Modify the parent hierarchy so that test functions and test classes are parented by the notebook they are
-        associated with.
+        """Group @pytest.mark.notebook marked test_functions by notebook path.
 
         That is, we're turning this:
 

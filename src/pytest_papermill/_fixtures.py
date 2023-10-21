@@ -8,7 +8,7 @@ from ._subplugins import IPythonMarkupPlugin, NotebookMarkerArg, NotebookMarkerH
 
 @pytest.fixture()
 def notebook_parameters() -> Dict[str, Any]:
-    """Return a dictionary used to parameterize a Jupyter Notebook with Papermill
+    """Return a dictionary used to parameterize a Jupyter Notebook with Papermill.
 
     Keys must be suitable to be used as a python identitifer. Values must be a JSON encodable value
 
@@ -21,8 +21,7 @@ def notebook_parameters() -> Dict[str, Any]:
 
 @pytest.fixture(name=NotebookMarkerHandler.FIXTURE_NAME)
 def notebook_path(request: pytest.FixtureRequest) -> Path:
-    """Return the path to the notebook under test"""
-
+    """Return the path to the notebook under test."""
     param: Optional[object] = getattr(request, "param", None)
     if not isinstance(param, NotebookMarkerArg):
         pytest.fail(
@@ -46,7 +45,7 @@ def notebook_output_path(notebook_path: Path, tmp_path: Path) -> Optional[Path]:
 
 @pytest.fixture(scope="session")
 def notebook_extra_arguments(request: pytest.FixtureRequest) -> Iterable[str]:
-    """Return a iterable suitable to be provided as the extra_arguments parameter for papermill.execute_notebook"""
+    """Return a iterable suitable to be provided as the extra_arguments parameter for papermill.execute_notebook."""
     style_plugin: Optional[IPythonMarkupPlugin] = next(
         (p for p in request.config.pluginmanager.get_plugins() if isinstance(p, IPythonMarkupPlugin)), None
     )

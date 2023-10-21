@@ -6,8 +6,7 @@ import pytest
 
 
 def test_notebooks_collected(testdir: pytest.Testdir) -> None:
-    """Validate that Jupyter Notebooks are collected as pytest.Items"""
-
+    """Validate that Jupyter Notebooks are collected as pytest.Items."""
     testdir.makefile(".ipynb", "")
     res = testdir.runpytest("--collect-only")
 
@@ -21,7 +20,7 @@ def test_notebooks_collected(testdir: pytest.Testdir) -> None:
 class TestOverrideDefaultTestFunctions:
     @staticmethod
     def override_test_functions(testdir: pytest.Testdir, *funcs: Callable) -> None:
-        """Override the test functions used when collecting noteboks
+        """Override the test functions used when collecting noteboks.
 
         :param pytest.Testdir testdir: The testdir fixture
         :param Callable *funcs: The test functions to use. Must be inspectable by inspect.getsource and have a
@@ -41,8 +40,7 @@ class TestOverrideDefaultTestFunctions:
         testdir.makeconftest(conftest)
 
     def test_can_override_with_nothing(self, testdir: pytest.Testdir) -> None:
-        """Validate calling the register function with no test functions disables the default on"""
-
+        """Validate calling the register function with no test functions disables the default on."""
         testdir.makefile(".ipynb", "")
 
         self.override_test_functions(testdir, *[])
@@ -52,8 +50,7 @@ class TestOverrideDefaultTestFunctions:
         res.assert_outcomes()  # Assert that nothing is run
 
     def test_can_replace_with_one(self, testdir: pytest.Testdir) -> None:
-        """Validate that a user can replace the default test function with their own"""
-
+        """Validate that a user can replace the default test function with their own."""
         testdir.makefile(".ipynb", "")
 
         def test_function(notebook_path):  # noqa: ANN001,ANN202,ARG001
@@ -67,7 +64,7 @@ class TestOverrideDefaultTestFunctions:
         res.stdout.fnmatch_lines("test_can_replace_with_one.ipynb::test_function*")
 
     def test_can_override_with_many(self, testdir: pytest.Testdir) -> None:
-        """Validate that a user can replace the default test function with many others"""
+        """Validate that a user can replace the default test function with many others."""
 
         def test_function1(notebook_path):  # noqa: ANN001,ANN202,ARG001
             pass
@@ -99,7 +96,7 @@ class TestOverrideDefaultTestFunctions:
 def test_default_test_function_runs_successfully(
     dummy_notebook: Path, testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Validate that the default test function runs a notebook successfully"""
+    """Validate that the default test function runs a notebook successfully."""
     monkeypatch.setenv("IPYTHONDIR", str(Path(testdir.tmpdir, ".ipython")))
     res = testdir.runpytest(dummy_notebook, "-v")
 
