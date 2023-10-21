@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union, cast
 
 import papermill as pm  # type: ignore[import-untyped]
 import pytest
@@ -14,7 +14,7 @@ def test_notebook_runs(
     notebook_path: Path,
     papermill_output_path: Path,
     papermill_parameters: Dict[str, Any],
-    papermill_extra_arguments: Iterable[str],
+    papermill_extra_arguments: List[str],
 ) -> None:
     cast(
         NotebookNode,
@@ -22,7 +22,7 @@ def test_notebook_runs(
             notebook_path,
             papermill_output_path,
             parameters=papermill_parameters,
-            extra_arguments=list(papermill_extra_arguments),
+            extra_arguments=papermill_extra_arguments,
         ),
     )
 
@@ -55,17 +55,17 @@ class PapermillTestRunner:
         """
         return tmp_path / notebook_path.with_suffix(".output.ipynb").name
 
-    @pytest.fixture(scope="session")
-    def papermill_extra_arguments(self, request: pytest.FixtureRequest) -> Iterable[str]:
-        """Return a iterable suitable to be provided as the extra_arguments parameter for papermill.execute_notebook."""
+    @pytest.fixture()
+    def papermill_extra_arguments(self, request: pytest.FixtureRequest) -> List[str]:
+        """Return a list passed as the extra_arguments parameter for papermill.execute_notebook."""
         style_plugin: Optional[IPythonMarkupPlugin] = next(
             (p for p in request.config.pluginmanager.get_plugins() if isinstance(p, IPythonMarkupPlugin)), None
         )
 
         if style_plugin:
-            return (style_plugin.get_ipython_markup_arg(),)
+            return [style_plugin.get_ipython_markup_arg()]
 
-        return ()
+        return []
 
     @pytest.hookimpl(trylast=True)
     def pytest_configure(self, config: pytest.Config) -> None:

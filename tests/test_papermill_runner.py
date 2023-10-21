@@ -15,9 +15,8 @@ def test_documentation(testdir: pytest.Testdir) -> None:
             "papermill_output_path -- */pytest_papermill/_subplugins/papermill_runner.py:*",
             "    Return the path to write the notebook output to.",
             "",
-            "papermill_extra_arguments [[]session scope] -- */pytest_papermill/_subplugins/papermill_runner.py:*",
-            "    Return a iterable suitable to be provided as the extra_arguments parameter for "
-            + "papermill.execute_notebook.",
+            "papermill_extra_arguments -- */pytest_papermill/_subplugins/papermill_runner.py:*",
+            "    Return a list passed as the extra_arguments parameter for papermill.execute_notebook.",
             "",
         ],
         consecutive=True,
@@ -62,6 +61,25 @@ def test_papermill_output_path(testdir: pytest.Testdir) -> None:
     )
 
     res = testdir.runpytest("test_papermill_output_path.py")
+
+    res.assert_outcomes(passed=1)
+
+    assert res.ret == 0, "pytest exited non-zero exitcode"
+
+
+def test_papermill_extra_arguments(dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+    """Validate that papermill_parameters fixture is a list."""
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        @pytest.mark.notebook({str(dummy_notebook)!r})
+        def test_fixture(notebook_path, papermill_extra_arguments):
+            assert isinstance(papermill_extra_arguments, list)
+    """
+    )
+
+    res = testdir.runpytest("test_papermill_extra_arguments.py")
 
     res.assert_outcomes(passed=1)
 
