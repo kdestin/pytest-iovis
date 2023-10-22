@@ -1,9 +1,9 @@
 import functools
+import json
 import os
 from pathlib import Path
 from typing import Callable, Optional, Union
 
-import nbformat
 import pytest
 
 pytest_plugins = ["pytester"]
@@ -17,9 +17,14 @@ def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[
         * A path that the notebook is written to
         * A falsy value, which signals that any path may be used
     """
-    nb: nbformat.NotebookNode = nbformat.v4.new_notebook()  # type: ignore[no-untyped-call]
-    nb["metadata"]["kernelspec"] = {"name": "python3", "language": "python", "display_name": "Python 3"}
-    notebook_string: str = nbformat.writes(nb)  # type: ignore[no-untyped-call]
+    notebook_string: str = json.dumps(
+        {
+            "cells": [],
+            "metadata": {"kernelspec": {"display_name": "Python 3", "language": "python", "name": "python3"}},
+            "nbformat": 4,
+            "nbformat_minor": 5,
+        }
+    )
 
     @functools.wraps(dummy_notebook_factory)  # type: ignore[misc]
     def toReturn(filename: Optional[Union["os.PathLike[str]", str]] = None) -> Path:
