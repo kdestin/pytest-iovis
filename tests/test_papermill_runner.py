@@ -24,6 +24,25 @@ def test_documentation(testdir: pytest.Testdir) -> None:
     )
 
 
+def test_papermill_parameters(dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+    """Validate that papermill_parameters fixture is a dictionary."""
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        @pytest.mark.notebook({str(dummy_notebook)!r})
+        def test_fixture(notebook_path, papermill_parameters):
+            assert isinstance(papermill_parameters, dict)
+    """
+    )
+
+    res = testdir.runpytest("test_papermill_parameters.py")
+
+    res.assert_outcomes(passed=1)
+
+    assert res.ret == 0, "pytest exited non-zero exitcode"
+
+
 def test_papermill_output_path(testdir: pytest.Testdir) -> None:
     notebook_path = Path("notebooks", "test.ipynb")
 
