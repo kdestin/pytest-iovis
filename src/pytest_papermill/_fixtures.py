@@ -28,7 +28,7 @@ def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[Path]:
     env_dir = tmp_path / f".venv_papermill_{test_name}"
 
     builder = ThinEnvBuilder.make_builder(with_pip=True)
-    builder.create(env_dir)
+    context = builder.create(env_dir)
 
-    with builder.activate(env_dir):
+    with builder.activate(context):
         yield env_dir

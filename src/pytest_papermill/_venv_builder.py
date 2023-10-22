@@ -1,11 +1,14 @@
-import configparser
 import contextlib
 import os
+import site
 import sys
+import sysconfig
 import types
 import venv
 from pathlib import Path
 from typing import Iterator, Optional, Union, final
+
+PathType = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
 
 
 class ThinEnvBuilder(venv.EnvBuilder):
@@ -20,6 +23,10 @@ class ThinEnvBuilder(venv.EnvBuilder):
     .. example::
 
         ThinEnvBuilder.make_builder(with_pip=True).create(".venv")
+
+    .. see-also::
+
+        `QEMU's mkvenv.py script <https://gitlab.com/qemu-project/qemu/-/blob/master/python/scripts/mkvenv.py>`
     """
 
     @classmethod
@@ -48,20 +55,30 @@ class ThinEnvBuilder(venv.EnvBuilder):
             prompt=prompt,
         )
 
+    def ensure_directories(self, env_dir: PathType) -> types.SimpleNamespace:
+        """Shim the ensure_directories super method to temporarily save the environment context."""
+        self._context = super().ensure_directories(env_dir)
+        return self._context
+
+    def create(self, env_dir: PathType) -> types.SimpleNamespace:  # type: ignore[override]
+        super().create(env_dir)
+        context = self._context
+        del self._context
+        return context
+
     @staticmethod
     @contextlib.contextmanager
-    def activate(env_dir: Union["os.PathLike[str]", str]) -> Iterator[None]:
+    def activate(context: types.SimpleNamespace) -> Iterator[None]:
         """Activate the virtual environment.
 
         This temporarily prepends the virtual environment's `/bin` dir to the $PATH.
 
-        :param env_dir: The path to the venv
-        :type env_dir: Union[os.PathLike[str], str]
+        :param types.SimpleNamespace env_dir: The virtual environment context (i.e. the return of ThinEnvBuilder.create)
         """
         original_path = os.environ.get("PATH", None)
 
         try:
-            os.environ["PATH"] = ":".join(p for p in (str(Path(env_dir, "bin")), original_path) if p)
+            os.environ["PATH"] = ":".join(p for p in (context.bin_path, original_path) if p)
             yield
         finally:
             if original_path is None:
@@ -83,8 +100,11 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
         with_pip: bool = False,
         prompt: Optional[str] = None,
     ) -> None:
+        host_system_site_packages = sys.base_prefix in site.PREFIXES
+        """Whether the host venv was created with system_site_packages enabled."""
+
         super().__init__(
-            system_site_packages=self.host_system_site_packages(),
+            system_site_packages=host_system_site_packages,
             clear=clear,
             symlinks=symlinks,
             upgrade=upgrade,
@@ -95,28 +115,53 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
     def post_setup(self, context: types.SimpleNamespace) -> None:
         """Inject a `sitecustomize.py` that allows this venv to resolve packages from the host venv.
 
-        :param context: The creation context
-        :type context: types.SimpleNamespace
+        :param types.SimpleNamespace context: The creation context
 
         .. see-also::
 
-                https://docs.python.org/3/library/site.html#module-sitecustomize
+                https://docs.python.org/3/library/site.html
         """
         super().post_setup(context)
-        host_env_dir = self.host_venv_path()
 
-        if host_env_dir is None:
-            raise ValueError(f"{ThinEnvBuilderFromVenv.__name__}.post_setup should only be called with an active venv")
+        host_lib_path = self.host_lib_path()
+        current_lib_path = self.lib_path(context)
+        Path(current_lib_path, "host_venv_site.pth").write_text(f"{host_lib_path}{os.linesep}", encoding="utf-8")
 
-        lib_path = Path(getattr(context, "lib_path", Path(context.env_dir, "lib")))
-        host_lib_path = host_env_dir / "lib"
+    @staticmethod
+    def lib_path(context: types.SimpleNamespace) -> Path:
+        """Fetch the environment context's directory for site-specific, not-platform-specific files.
 
-        site_packages_dir = Path(f"python{sys.version_info.major}.{sys.version_info.minor}", "site-packages")
+        Compatibility wrapper for context.lib_path for Python < 3.12.
 
-        sitecustomize_path = Path(lib_path / site_packages_dir / "sitecustomize.py")
-        sitecustomize_path.write_text(
-            "\n".join(["import site", "", f"site.addsitedir({str(host_lib_path / site_packages_dir)!r})"])
-        )
+        Copied verbatim from:
+            https://gitlab.com/qemu-project/qemu/-/blob/0a88ac9662950cecac74b5de3056071a964e4fc4/python/scripts/mkvenv.py#L209-237
+        """
+        # Python 3.12+, not strictly necessary because it's documented
+        # to be the same as 3.10 code below:
+        if sys.version_info >= (3, 12):
+            return Path(context.lib_path)
+
+        # Python 3.10+
+        if "venv" in sysconfig.get_scheme_names():
+            lib_path = sysconfig.get_path("purelib", scheme="venv", vars={"base": context.env_dir})
+            assert lib_path is not None
+            return Path(lib_path)
+
+        # For Python <= 3.9 we need to hardcode this. Fortunately the
+        # code below was the same in Python 3.6-3.10, so there is only
+        # one case.
+        if sys.platform == "win32":
+            return Path(context.env_dir, "Lib", "site-packages")
+
+        return Path(context.env_dir, "lib", "python%d.%d" % sys.version_info[:2], "site-packages")
+
+    @staticmethod
+    def host_lib_path() -> Path:
+        """Fetch the host virtual environment's directory for site-specific, not-platform-specific files."""
+        path = sysconfig.get_path("purelib")
+        if path is None:
+            raise ValueError("host venv.lib_path is unexpectedly None")
+        return Path(path)
 
     @staticmethod
     def is_running_in_venv() -> bool:
@@ -138,44 +183,6 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
              https://docs.python.org/3/library/venv.html#how-venvs-work
         """
         return sys.prefix != sys.base_prefix
-
-    @staticmethod
-    def host_venv_path() -> Optional[Path]:
-        """Return the path to the host virtual environment.
-
-        :return: Path to the host virtual environment if there is an activated virtual environment, None otherwise
-        :rtype: Optional[Path]
-        """
-        if ThinEnvBuilderFromVenv.is_running_in_venv():
-            return Path(sys.prefix)
-
-        return None
-
-    @staticmethod
-    def host_system_site_packages() -> bool:
-        """Return the value of `include-system-site-packages` in the host virtual environment's pyvenv.cfg.
-
-        :return: True if there exists a pyvenv.cfg file in the host virtual environmeent with an
-            'include-system-site-packages' field that is truthy. False otherwise.
-        :rtype: bool
-        """
-        venv_path = ThinEnvBuilderFromVenv.host_venv_path()
-
-        if venv_path is None:
-            return False
-
-        pyvenv = Path(venv_path, "pyvenv.cfg")
-
-        if not pyvenv.is_file():
-            return False
-
-        config = configparser.ConfigParser()
-
-        # https://stackoverflow.com/questions/2885190/26859985#26859985
-        fake_section = "hello"
-        config.read_string(f"[{fake_section}]\n" + pyvenv.read_text())
-
-        return config[fake_section].getboolean("include-system-site-packages", fallback=False)
 
 
 @final
