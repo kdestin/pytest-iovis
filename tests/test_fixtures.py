@@ -3,6 +3,30 @@ from pathlib import Path
 import pytest
 
 
+def test_documentation(testdir: pytest.Testdir) -> None:
+    """Validate that our fixtures are documented in `pytest --fixtures`."""
+    res = testdir.runpytest("--fixtures")
+
+    res.stdout.fnmatch_lines(
+        [
+            "notebook_parameters -- */pytest_papermill/_fixtures.py:*",
+            "    Return a dictionary used to parameterize a Jupyter Notebook with Papermill.",
+            "",
+            "notebook_path -- */pytest_papermill/_fixtures.py:*",
+            "    Return the path to the notebook under test.",
+            "",
+            "notebook_output_path -- */pytest_papermill/_fixtures.py:*",
+            "    Return the path to write the notebook output to.",
+            "",
+            "notebook_extra_arguments [[]session scope] -- */pytest_papermill/_fixtures.py:*",
+            "    Return a iterable suitable to be provided as the extra_arguments parameter for "
+            + "papermill.execute_notebook.",
+            "",
+        ],
+        consecutive=True,
+    )
+
+
 def test_notebook_path(testdir: pytest.Testdir) -> None:
     notebook_path = Path("notebooks", "test.ipynb")
     testdir.makefile("ipynb", **{str(notebook_path): ""})

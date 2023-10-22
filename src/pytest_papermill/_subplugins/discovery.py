@@ -28,6 +28,10 @@ class FileDelayer(Generic[T_File]):
         pytest.File argument. Should be used on a session stash.
         """
 
+        self._IS_COLLECTING = pytest.StashKey[bool]()
+        """Key that maps to a bool which is set to True if pytest doing test collection as part of its documented
+        collection protocol (i.e. pytest_collection has been called)."""
+
     def is_last_make_collect_report_for_file(self, session: pytest.Session) -> bool:
         """Whether this is the last pytest_make_collect_report hook called on a pytest.File.
 
@@ -61,14 +65,24 @@ class FileDelayer(Generic[T_File]):
     def get_delayed(self, session: pytest.Session) -> List[T_File]:
         return session.stash[self._DELAYED_KEY]
 
+    def is_pytest_collecting(self, session: pytest.Session) -> bool:
+        """Return whether pytest_collection has been called.
+
+        This to differentiate when a call to a collection related hook is part of the normal collection protocol,
+        or directly as part of something like `pytest --fixtures`.
+        """
+        return session.stash.get(self._IS_COLLECTING, False) is True
+
     @pytest.hookimpl(hookwrapper=True)
     def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
         """Initialize session variables."""
         session.stash[self._DELAYED_KEY] = cast(List[T_File], [])
         session.stash[self._REMAINING_CALLS_KEY] = 1  # Start at 1 since collect is always called on the session itself
+        session.stash[self._IS_COLLECTING] = True
 
         yield
 
+        del session.stash[self._IS_COLLECTING]
         del session.stash[self._DELAYED_KEY]
         del session.stash[self._REMAINING_CALLS_KEY]
 
@@ -76,11 +90,15 @@ class FileDelayer(Generic[T_File]):
     def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pluggy.Result, None]:
         result: pluggy.Result = yield
 
+        session = collector.session
+
+        if not self.is_pytest_collecting(session):
+            return
+
         if isinstance(collector, self._file_collector_type):
             return
 
         report: pytest.CollectReport = result.get_result()
-        session = collector.session
         delayed_collectors = self.get_delayed(session)
 
         if isinstance(collector, (pytest.Session, pytest.File)):
@@ -182,9 +200,12 @@ class JupyterNotebookDiscoverer:
 
         report: pytest.CollectReport = result.get_result()
         session = collector.session
-        seen_user_paths = session.stash[self.__USER_DEFINED_PATHS_KEY]
         delayer = self.get_delayer(session)
 
+        if not delayer.is_pytest_collecting(session):
+            return
+
+        seen_user_paths = session.stash[self.__USER_DEFINED_PATHS_KEY]
         seen_user_paths.update(p for p in map(NotebookMarkerHandler.get_notebook_path, report.result) if p is not None)
 
         if delayer.is_last_make_collect_report_for_file(session):
