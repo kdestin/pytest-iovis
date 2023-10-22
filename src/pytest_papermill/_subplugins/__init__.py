@@ -19,11 +19,20 @@ plugin as follows:
     https://pluggy.readthedocs.io/en/latest/#define-and-collect-hooks
     https://docs.python.org/3/tutorial/classes.html#tut-scopes
 """
+import importlib
+
 from .discovery import JupyterNotebookDiscoverer, register_default_test_functions
 from .grouping import NotebookGrouper
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
-from .papermill_runner import PapermillTestRunner
+
+if importlib.util.find_spec("papermill") is not None:
+    from .papermill_runner import PapermillTestRunner
+else:
+
+    class PapermillTestRunner:  # type: ignore[no-redef]
+        PLUGIN_NAME = "papermill_runner"
+
 
 __all__ = [
     "IPythonMarkupPlugin",
