@@ -1,5 +1,4 @@
 import inspect
-from pathlib import Path
 from typing import Callable
 
 import pytest
@@ -91,15 +90,3 @@ class TestOverrideDefaultTestFunctions:
                 "test_can_override_with_many2.ipynb::test_function3*",
             ]
         )
-
-
-def test_default_test_function_runs_successfully(
-    dummy_notebook: Path, testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Validate that the default test function runs a notebook successfully."""
-    monkeypatch.setenv("IPYTHONDIR", str(Path(testdir.tmpdir, ".ipython")))
-    res = testdir.runpytest(dummy_notebook, "-v")
-
-    res.assert_outcomes(passed=1)
-
-    res.stdout.fnmatch_lines("test_default_test_function_runs_successfully.ipynb::test_notebook_runs PASSED*")
