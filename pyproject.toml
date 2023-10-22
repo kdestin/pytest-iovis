@@ -3,7 +3,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "pytest-papermill"
+name = "pytest-iovis"
 version = "0.1.0"
 authors = []
 readme = "README.rst"
@@ -29,11 +29,11 @@ requires-python = ">=3.7"
 dependencies = ["pytest>=7.1.0", "typing_extensions>=4.0"]
 
 [project.optional-dependencies]
-dev = ["pre-commit", "mypy~=1.0", "pytest-papermill[papermill]", "ipykernel>=6"]
+dev = ["pre-commit", "mypy~=1.0", "pytest-iovis[papermill]", "ipykernel>=6"]
 papermill = ["papermill ~= 2.0"]
 
 [project.entry-points.pytest11]
-papermill = "pytest_papermill.plugin"
+iovis = "pytest_iovis.plugin"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -25,7 +25,7 @@ def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[Path]:
     """Activate a virtual environment and return path to the environment dir."""
     node = request.node
     test_name = node.originalname if isinstance(node, pytest.Function) else node.name
-    env_dir = tmp_path / f".venv_papermill_{test_name}"
+    env_dir = tmp_path / f".venv_iovis_{test_name}"
 
     builder = ThinEnvBuilder.make_builder(with_pip=True)
     context = builder.create(env_dir)

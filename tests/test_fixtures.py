@@ -9,7 +9,7 @@ def test_documentation(testdir: pytest.Testdir) -> None:
 
     res.stdout.fnmatch_lines(
         [
-            "notebook_path -- */pytest_papermill/_fixtures.py:*",
+            "notebook_path -- */pytest_iovis/_fixtures.py:*",
             "    Return the path to the notebook under test.",
             "",
         ],

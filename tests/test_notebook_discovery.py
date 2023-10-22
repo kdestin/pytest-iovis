@@ -27,7 +27,7 @@ class TestOverrideDefaultTestFunctions:
         """
         conftest = "\n".join(
             [
-                "from pytest_papermill import register_default_test_functions",
+                "from pytest_iovis import register_default_test_functions",
                 "",
                 *[inspect.getsource(f).lstrip() for f in funcs],
                 "",

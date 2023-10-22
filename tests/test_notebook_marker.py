@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture()
 def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
     """Return the testdir fixutre, but ensure that the grouping subplugin is disabled and doesn't affect output."""
-    monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:papermill.grouping")
+    monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:iovis.grouping")
     return testdir
 
 
@@ -306,7 +306,7 @@ class TestDefaultFunctionsRemoved:
 
         testdir.makeconftest(
             """
-            from pytest_papermill import register_default_test_functions
+            from pytest_iovis import register_default_test_functions
 
             def test_notebook_1(notebook_path):
                 pass

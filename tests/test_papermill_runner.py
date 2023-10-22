@@ -9,13 +9,13 @@ def test_documentation(testdir: pytest.Testdir) -> None:
 
     res.stdout.fnmatch_lines(
         [
-            "papermill_parameters -- */pytest_papermill/_subplugins/papermill_runner.py:*",
+            "papermill_parameters -- */pytest_iovis/_subplugins/papermill_runner.py:*",
             "    Return a dictionary used to parameterize a Jupyter Notebook with Papermill.",
             "",
-            "papermill_output_path -- */pytest_papermill/_subplugins/papermill_runner.py:*",
+            "papermill_output_path -- */pytest_iovis/_subplugins/papermill_runner.py:*",
             "    Return the path to write the notebook output to.",
             "",
-            "papermill_extra_arguments -- */pytest_papermill/_subplugins/papermill_runner.py:*",
+            "papermill_extra_arguments -- */pytest_iovis/_subplugins/papermill_runner.py:*",
             "    Return a list passed as the extra_arguments parameter for papermill.execute_notebook.",
             "",
         ],
