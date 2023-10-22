@@ -1,6 +1,9 @@
 import contextlib
+import importlib
+import inspect
 import os
 import site
+import subprocess
 import sys
 import sysconfig
 import types
@@ -103,12 +106,17 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
         host_system_site_packages = sys.base_prefix in site.PREFIXES
         """Whether the host venv was created with system_site_packages enabled."""
 
+        host_has_pip = importlib.util.find_spec("pip") is not None
+
+        self.with_pip_from_host: bool = with_pip and host_has_pip
+        """Whether to use the host venv's pip to make a `pip` command available on path."""
+
         super().__init__(
             system_site_packages=host_system_site_packages,
             clear=clear,
             symlinks=symlinks,
             upgrade=upgrade,
-            with_pip=with_pip,
+            with_pip=with_pip and not self.with_pip_from_host,
             prompt=prompt,
         )
 
@@ -126,6 +134,21 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
         host_lib_path = self.host_lib_path()
         current_lib_path = self.lib_path(context)
         Path(current_lib_path, "host_venv_site.pth").write_text(f"{host_lib_path}{os.linesep}", encoding="utf-8")
+
+        if self.with_pip_from_host:
+            self._make_pip_available_in_bin_path(context)
+
+    def _make_pip_available_in_bin_path(self, context: types.SimpleNamespace) -> None:
+        """Make the `pip` command available in the $PATH of the environment."""
+        generate_script = "\n".join(
+            [
+                inspect.getsource(_make_packages_available_on_path),
+                "",
+                "if __name__ == '__main__':",
+                f"    {_make_packages_available_on_path.__name__}(['pip'])",
+            ]
+        )
+        subprocess.run([context.env_exe, "-c", generate_script], check=True, capture_output=True)
 
     @staticmethod
     def lib_path(context: types.SimpleNamespace) -> Path:
@@ -206,3 +229,74 @@ class ThinEnvBuilderFromSystemInstall(ThinEnvBuilder):
             with_pip=with_pip,
             prompt=prompt,
         )
+
+
+def _make_packages_available_on_path(package_names) -> None:  # type: ignore[no-untyped-def]  # noqa: ANN001
+    """Generate console scripts for listed packages to make them available on the path for the current environment.
+
+    :param List[str] package_names: The list of packages to generate console scripts for.
+
+    .. note::
+
+    This function internally imports all of its dependencies, so that its source code can be lifted and run without
+    modification in another python environment.
+
+    .. see-also::
+
+        https://gitlab.com/qemu-project/qemu/-/blob/0a88ac9662950cecac74b5de3056071a964e4fc4/python/scripts/mkvenv.py
+    """
+    import sys
+    import sysconfig
+    from importlib.metadata import EntryPoint, PackageNotFoundError, distribution
+    from typing import Iterator, List, Optional
+
+    # Try to load distlib, with a fallback to pip's vendored version.
+    # HAVE_DISTLIB is checked below, just-in-time, so that mkvenv does not fail
+    # outside the venv or before a potential call to ensurepip in checkpip().
+    try:
+        import distlib.scripts  # type: ignore[import-untyped]
+    except ImportError:
+        try:
+            import pip._vendor.distlib.scripts  # noqa: F401
+            from pip._vendor import distlib
+        except ImportError:
+            print(f"Please install distlib: '{sys.executable} -m pip install distlib'")  # noqa: T201
+            raise
+
+    def generate_console_scripts(
+        packages: List[str],
+        python_path: Optional[str] = None,
+        bin_path: Optional[str] = None,
+    ) -> None:
+        """Generate script shims for console_script entry points in @packages."""
+        if python_path is None:
+            python_path = sys.executable
+        if bin_path is None:
+            bin_path = sysconfig.get_path("scripts")
+            assert bin_path is not None
+
+        if not packages:
+            return
+
+        maker = distlib.scripts.ScriptMaker(None, bin_path)
+        maker.variants = {""}
+        maker.clobber = False
+
+        for entry_point in _get_entry_points(packages):
+            maker.make(entry_point)
+
+    def _get_entry_points(packages: List[str]) -> Iterator[str]:
+        for package in packages:
+            try:
+                entry_points: Iterator[EntryPoint] = iter(distribution(package).entry_points)
+            except PackageNotFoundError:
+                continue
+
+            # The EntryPoints type is only available in 3.10+,
+            # treat this as a vanilla list and filter it ourselves.
+            entry_points = (ep for ep in entry_points if ep.group == "console_scripts")
+
+            for entry_point in entry_points:
+                yield f"{entry_point.name} = {entry_point.value}"
+
+    generate_console_scripts(package_names)
