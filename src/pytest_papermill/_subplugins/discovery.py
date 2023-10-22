@@ -5,13 +5,17 @@ import pluggy
 import pytest
 from typing_extensions import TypeAlias, TypeGuard
 
-from .._file import JupyterNotebookFile, test_notebook_runs
+from .._file import JupyterNotebookFile
 from .._utils import partition
 from .notebook_marker import NotebookMarkerHandler
 
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
 T_File = TypeVar("T_File", bound=pytest.File)
+
+
+def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
+    """Do nothing."""
 
 
 class FileDelayer(Generic[T_File]):
@@ -157,6 +161,19 @@ class JupyterNotebookDiscoverer:
 
             test_functions.append(f)
 
+    @classmethod
+    def test_functions(cls, config: pytest.Config) -> Optional[List[T_OpaqueCallable]]:
+        """Get test functions registered by register_default_test_functions.
+
+        :param pytest.Config config: The session's pytest config
+        :return: Returns
+          * None if register_default_test_functions has never been called.
+          * The list of registered test functions
+        :rtype: Optional[List[T_OpaqueCallable]]
+        """
+        funcs = config.stash.get(cls.TEST_FUNCTION_KEY, None)
+        return funcs and funcs.copy()
+
     def get_delayer(self, session: pytest.Session) -> FileDelayer[JupyterNotebookFile]:
         """Retrieve the FileDelayer plugin used to delay JupyterNotebookFile collectors."""
         plugin = session.config.pluginmanager.get_plugin(self.__DELAYER_NAME)
@@ -171,12 +188,13 @@ class JupyterNotebookDiscoverer:
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
         """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
+            test_functions = self.test_functions(parent.config)
             return cast(
                 JupyterNotebookFile,
                 JupyterNotebookFile.from_parent(
                     parent,
                     path=file_path,
-                    test_functions=parent.config.stash.get(self.TEST_FUNCTION_KEY, [test_notebook_runs]),
+                    test_functions=test_functions if test_functions is not None else [test_nothing],
                 ),
             )
         return None

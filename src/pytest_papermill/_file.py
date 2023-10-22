@@ -1,32 +1,11 @@
 import types
-from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, List, Optional, Union, cast
+from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, cast
 
-import papermill as pm  # type: ignore[import-untyped]
 import pytest
-from nbformat import NotebookNode
 from typing_extensions import Self
 
 if TYPE_CHECKING:
-    from _pytest._code.code import TerminalRepr
     from _pytest.nodes import Node
-
-
-def test_notebook_runs(
-    notebook_path: Path,
-    notebook_output_path: Path,
-    notebook_parameters: Dict[str, Any],
-    notebook_extra_arguments: Iterable[str],
-) -> None:
-    cast(
-        NotebookNode,
-        pm.execute_notebook(
-            notebook_path,
-            notebook_output_path,
-            parameters=notebook_parameters,
-            extra_arguments=list(notebook_extra_arguments),
-        ),
-    )
 
 
 class JupyterNotebookFile(pytest.Module):
@@ -68,19 +47,6 @@ class JupyterNotebookFile(pytest.Module):
 
 
 class JupyterNotebookTestFunction(pytest.Function):
-    def repr_failure(  # type: ignore[override]
-        self, excinfo: pytest.ExceptionInfo[BaseException]
-    ) -> Union[str, "TerminalRepr"]:
-        """Return a representation of a test failure.
-
-        :param excinfo: Exception information for the failure.
-        :returns: The formatted exception
-        :rtype: str or _pytest._code.code.TerminalRepr
-        """
-        if isinstance(excinfo.value, pm.PapermillExecutionError):
-            return "\n".join(excinfo.value.traceback)
-        return super().repr_failure(excinfo)
-
     @classmethod
     def from_function(cls, parent: Optional["Node"], other: pytest.Function) -> Self:
         """Create a JupyterNotebookTestFunction as a copy of a pytest.Function.

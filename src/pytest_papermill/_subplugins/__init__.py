@@ -23,6 +23,7 @@ from .discovery import JupyterNotebookDiscoverer, register_default_test_function
 from .grouping import NotebookGrouper
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
+from .papermill_runner import PapermillTestRunner
 
 __all__ = [
     "IPythonMarkupPlugin",
@@ -30,5 +31,6 @@ __all__ = [
     "NotebookGrouper",
     "NotebookMarkerArg",
     "NotebookMarkerHandler",
+    "PapermillTestRunner",
     "register_default_test_functions",
 ]
