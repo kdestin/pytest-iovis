@@ -258,7 +258,9 @@ class TestDefaultFunctionsRemoved:
         )
 
     def test_does_not_affect_non_overriden_functions(
-        self, dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path], testdir: pytest.Testdir
+        self,
+        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        testdir: pytest.Testdir,
     ) -> None:
         """Check that non overriden functions are unaffected."""
         notebook_paths = [str(dummy_notebook_factory(Path("notebooks", f"test{i}.ipynb"))) for i in range(3)]

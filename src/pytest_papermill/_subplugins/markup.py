@@ -69,3 +69,10 @@ class IPythonMarkupPlugin:
 
     set_traceback_highlighting_style({self.style_name!r})
     del set_traceback_highlighting_style"""
+
+    # This was fixed in IPython 8.15: https://ipython.readthedocs.io/en/stable/whatsnew/version8.html#ipython-8-15
+    # https://github.com/ipython/ipython/pull/14138
+    #
+    # Can replace the above with:
+    # from IPython.core.ultratb import VerboseTB
+    # VerboseTB._tb_highlight_style = "pastie"

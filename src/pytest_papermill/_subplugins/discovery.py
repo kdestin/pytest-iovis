@@ -87,8 +87,10 @@ class FileDelayer(Generic[T_File]):
         del session.stash[self._REMAINING_CALLS_KEY]
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pluggy.Result, None]:
-        result: pluggy.Result = yield
+    def pytest_make_collect_report(
+        self, collector: pytest.Collector
+    ) -> Generator[None, pluggy.Result[pytest.CollectReport], None]:
+        result: pluggy.Result[pytest.CollectReport] = yield
 
         session = collector.session
 
@@ -98,7 +100,7 @@ class FileDelayer(Generic[T_File]):
         if isinstance(collector, self._file_collector_type):
             return
 
-        report: pytest.CollectReport = result.get_result()
+        report = result.get_result()
         delayed_collectors = self.get_delayed(session)
 
         if isinstance(collector, (pytest.Session, pytest.File)):
@@ -169,10 +171,13 @@ class JupyterNotebookDiscoverer:
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
         """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
-            return JupyterNotebookFile.from_parent(
-                parent,
-                path=file_path,
-                test_functions=parent.config.stash.get(self.TEST_FUNCTION_KEY, [test_notebook_runs]),
+            return cast(
+                JupyterNotebookFile,
+                JupyterNotebookFile.from_parent(
+                    parent,
+                    path=file_path,
+                    test_functions=parent.config.stash.get(self.TEST_FUNCTION_KEY, [test_notebook_runs]),
+                ),
             )
         return None
 
@@ -186,19 +191,21 @@ class JupyterNotebookDiscoverer:
         del session.stash[self.__USER_DEFINED_PATHS_KEY]
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_make_collect_report(self, collector: pytest.Collector) -> Generator[None, pluggy.Result, None]:
+    def pytest_make_collect_report(
+        self, collector: pytest.Collector
+    ) -> Generator[None, pluggy.Result[pytest.CollectReport], None]:
         """Remove JupyterNotebookFile collectors that don't need to be collected.
 
         The JupyterNotebookFile collectors created by this class are unneeded if the user has written at least one
         test function for the collected file. This function delays the collection of JupyterNotebookFiles so that
         unneeded collectors can be removed.
         """
-        result: pluggy.Result = yield
+        result: pluggy.Result[pytest.CollectReport] = yield
 
         if isinstance(collector, JupyterNotebookFile):
             return
 
-        report: pytest.CollectReport = result.get_result()
+        report = result.get_result()
         session = collector.session
         delayer = self.get_delayer(session)
 

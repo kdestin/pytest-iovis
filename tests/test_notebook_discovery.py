@@ -19,7 +19,7 @@ def test_notebooks_collected(testdir: pytest.Testdir) -> None:
 
 class TestOverrideDefaultTestFunctions:
     @staticmethod
-    def override_test_functions(testdir: pytest.Testdir, *funcs: Callable) -> None:
+    def override_test_functions(testdir: pytest.Testdir, *funcs: Callable[..., object]) -> None:
         """Override the test functions used when collecting noteboks.
 
         :param pytest.Testdir testdir: The testdir fixture
@@ -53,7 +53,7 @@ class TestOverrideDefaultTestFunctions:
         """Validate that a user can replace the default test function with their own."""
         testdir.makefile(".ipynb", "")
 
-        def test_function(notebook_path):  # noqa: ANN001,ANN202,ARG001
+        def test_function(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
         self.override_test_functions(testdir, test_function)
@@ -66,13 +66,13 @@ class TestOverrideDefaultTestFunctions:
     def test_can_override_with_many(self, testdir: pytest.Testdir) -> None:
         """Validate that a user can replace the default test function with many others."""
 
-        def test_function1(notebook_path):  # noqa: ANN001,ANN202,ARG001
+        def test_function1(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        def test_function2(notebook_path):  # noqa: ANN001,ANN202,ARG001
+        def test_function2(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        def test_function3(notebook_path):  # noqa: ANN001,ANN202,ARG001
+        def test_function3(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
         self.override_test_functions(testdir, test_function1, test_function2, test_function3)

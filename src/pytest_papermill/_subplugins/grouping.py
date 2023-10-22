@@ -88,7 +88,9 @@ class NotebookGrouper:
                 if isinstance(item.parent, pytest.Class):
                     return parents.setdefault(
                         item.parent,
-                        pytest.Class.from_parent(file_root, name=item.parent.name, obj=item.parent.obj),
+                        pytest.Class.from_parent(  # type: ignore[no-untyped-call]
+                            file_root, name=item.parent.name, obj=item.parent.obj
+                        ),
                     )
 
                 return None

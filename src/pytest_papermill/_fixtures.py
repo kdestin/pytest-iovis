@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, cast
+from typing import Any, Dict, Iterable, Optional
 
 import pytest
 
@@ -29,7 +29,7 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
             pytrace=False,
         )
 
-    return cast(NotebookMarkerArg, param).resolved_path
+    return param.resolved_path
 
 
 @pytest.fixture()

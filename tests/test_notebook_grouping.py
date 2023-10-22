@@ -32,7 +32,7 @@ def test_no_mark_on_test_function(testdir: pytest.Testdir) -> None:
 
 
 def test_single_mark_on_test_function(
-    dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path], testdir: pytest.Testdir
+    dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path], testdir: pytest.Testdir
 ) -> None:
     """Verify that applying a single marker parents the test function to a JupyterNotebookFile."""
     notebook_paths = [str(dummy_notebook_factory(f"test{i}.ipynb")) for i in range(2)]
@@ -66,7 +66,7 @@ def test_single_mark_on_test_function(
 
 
 def test_multiple_marks_on_test_function(
-    dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path], testdir: pytest.Testdir
+    dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path], testdir: pytest.Testdir
 ) -> None:
     """Verify that applying n markers makes n copies of the test function for each notebook path."""
     notebook_paths = [str(dummy_notebook_factory(f"test{i}.ipynb")) for i in range(3)]
@@ -101,7 +101,7 @@ def test_multiple_marks_on_test_function(
 
 
 def test_class_object_fan_out(
-    dummy_notebook_factory: Callable[[Optional[Union[os.PathLike, str]]], Path], testdir: pytest.Testdir
+    dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path], testdir: pytest.Testdir
 ) -> None:
     """Verify that class lineage is preserved, and classes are duplicate as needed."""
     notebook_paths = [str(dummy_notebook_factory(f"test{i}.ipynb")) for i in range(3)]

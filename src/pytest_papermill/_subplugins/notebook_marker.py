@@ -13,7 +13,7 @@ from .._utils import error_message_at_mark_owner, make_mark_description
 
 @dataclass
 class NotebookMarkerArg:
-    original_path: Union[os.PathLike, str]
+    original_path: Union["os.PathLike[str]", str]
     """The untouched argument provided by the user in the notebook marker"""
 
     resolved_path: Path
@@ -25,12 +25,12 @@ class NotebookMarkerArg:
     """
 
     @classmethod
-    def from_item(cls, item: pytest.Item, original_path: Union[os.PathLike, str]) -> Self:
+    def from_item(cls, item: pytest.Item, original_path: Union["os.PathLike[str]", str]) -> Self:
         """Create a new object, using the pytest.Item's path to resolve the notebook path.
 
         :param pytest.Item item: The pytest Item the marker was applied to
         :param original_path: The original argument the user provided to @pytest.mark.notebook
-        :type original_path: Union[os.PathLike, str]
+        :type original_path: Union["os.PathLike[str]", str]
         :return: A NotebookMarkerArg
         :rtype: NotebookMarkerArg
         """
@@ -43,7 +43,7 @@ class NotebookMarkerArg:
         return cls(original_path=original_path, resolved_path=resolved_path)
 
 
-def notebook(path: Union[os.PathLike, str]) -> Union[os.PathLike, str]:
+def notebook(path: Union[os.PathLike, str]) -> Union["os.PathLike[str]", str]:  # type: ignore[type-arg]
     """Associate a test function with a Jupyter Notebook.
 
     This function is only used to generate documentation for the `notebook` marker (docstring + signature)
@@ -152,7 +152,7 @@ class NotebookMarkerHandler:
         if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):
             return None
 
-        return f"{(cast(NotebookMarkerArg, val).original_path)}"
+        return f"{(val.original_path)}"
 
     def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
         """Parametrize the `notebook_path` fixture to generate a test function for each notebook marker."""
