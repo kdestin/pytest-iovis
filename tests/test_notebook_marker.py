@@ -7,7 +7,7 @@ import pytest
 
 @pytest.fixture()
 def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
-    """Return the testdir fixutre, but ensure that the grouping subplugin is disabled and doesn't affect output."""
+    """Return the testdir fixture, but ensure that the grouping subplugin is disabled and doesn't affect output."""
     monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:iovis.grouping")
     return testdir
 
@@ -26,13 +26,13 @@ def test_notebook_marker_documentation(testdir: pytest.Testdir) -> None:
 class TestErrorMessages:
     def test_file_doesnt_exist(self, testdir: pytest.Testdir) -> None:
         """Verify that a reasonable error message is shown when the path doesn't exist."""
-        nonexistant_path = Path("path", "does", "not", "exist.ipynb")
+        nonexistent_path = Path("path", "does", "not", "exist.ipynb")
 
         testdir.makepyfile(
             f"""
             import pytest
 
-            @pytest.mark.notebook({str(nonexistant_path)!r})
+            @pytest.mark.notebook({str(nonexistent_path)!r})
             def test_marker():
                 pass
         """
@@ -41,7 +41,7 @@ class TestErrorMessages:
         res = testdir.runpytest_subprocess("--collect-only")
 
         res.assert_outcomes(errors=1)
-        res.stdout.fnmatch_lines(f"*.py::test_marker: [[]Errno 2] No such file or directory: '*{nonexistant_path}'")
+        res.stdout.fnmatch_lines(f"*.py::test_marker: [[]Errno 2] No such file or directory: '*{nonexistent_path}'")
 
         assert res.ret != 0
 
@@ -257,12 +257,12 @@ class TestDefaultFunctionsRemoved:
             consecutive=True,
         )
 
-    def test_does_not_affect_non_overriden_functions(
+    def test_does_not_affect_non_overridden_functions(
         self,
         dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
         testdir: pytest.Testdir,
     ) -> None:
-        """Check that non overriden functions are unaffected."""
+        """Check that non overridden functions are unaffected."""
         notebook_paths = [str(dummy_notebook_factory(Path("notebooks", f"test{i}.ipynb"))) for i in range(3)]
         testfile_path = Path("tests", "test.py")
 

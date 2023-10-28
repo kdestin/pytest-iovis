@@ -13,7 +13,7 @@ T2 = TypeVar("T2")
 
 
 def make_mark_description(mark_fn: Callable[..., object]) -> str:
-    """Generate a string that can be used to programatically register a pytest marker from a function.
+    """Generate a string that can be used to programmatically register a pytest marker from a function.
 
     .. example::
 

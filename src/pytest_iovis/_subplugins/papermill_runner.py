@@ -28,7 +28,7 @@ def test_notebook_runs(
 
 
 class PapermillTestRunner:
-    """Provides a test function and fixtures to faciliate running notebooks with papermill."""
+    """Provides a test function and fixtures to facilitate running notebooks with papermill."""
 
     PLUGIN_NAME = "papermill_runner"
     """A user facing name that describes this plugin."""
@@ -78,7 +78,7 @@ class PapermillTestRunner:
         call: pytest.CallInfo[object],
         report: Union[pytest.CollectReport, pytest.TestReport],
     ) -> None:
-        """Reformat the failure represention if the exception is a papermill.PapermillExecutationError."""
+        """Reformat the failure representation if the exception is a papermill.PapermillExecutionError."""
         if not (isinstance(report, pytest.TestReport) and NotebookMarkerHandler.is_marked_function(node)):
             return
 

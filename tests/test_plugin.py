@@ -1,4 +1,4 @@
-"""A module with miscelaneous tests for the plugin."""
+"""A module with miscellaneous tests for the plugin."""
 import pytest
 
 
