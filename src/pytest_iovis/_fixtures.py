@@ -22,8 +22,9 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture()
-<<<<<<< HEAD
-def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[types.SimpleNamespace]:
+def venv(
+    request: pytest.FixtureRequest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterable[types.SimpleNamespace]:
     """Activate a virtual environment which has access to all packages in the host environment.
 
     :return: The SimpleNamespace returned by venv.VenvBuilder.ensure_directories.
@@ -37,6 +38,17 @@ def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[types.Simpl
 
     builder = ThinEnvBuilder.make_builder(with_pip=True)
     context = builder.create(env_dir)
+
+    # THIS IS A HACK
+    #
+    # Jupyter will non-configurably replace `python`, `pythonX` or `pythonX.Y` with `sys.executable` when spawning
+    # a kernel (to prevent user confusion if the Python interpreter that's running isn't the one on $PATH, like
+    # when invoking a venv Python by abs path).
+    #
+    # See:
+    #
+    # https://github.com/jupyter/jupyter_client/blob/d044eb53cb64489c81ac47944a3b9e79db1dd926/jupyter_client/manager.py#L292-L303
+    monkeypatch.setattr("sys.executable", context.env_exe)
 
     with builder.activate(context):
         yield context
