@@ -1,3 +1,4 @@
+import types
 from pathlib import Path
 from typing import Iterable, Optional
 
@@ -21,8 +22,15 @@ def notebook_path(request: pytest.FixtureRequest) -> Path:
 
 
 @pytest.fixture()
-def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[Path]:
-    """Activate a virtual environment and return path to the environment dir."""
+<<<<<<< HEAD
+def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[types.SimpleNamespace]:
+    """Activate a virtual environment which has access to all packages in the host environment.
+
+    :return: The SimpleNamespace returned by venv.VenvBuilder.ensure_directories.
+    :rtype: types.SimpleNamespace
+    .. see-also::
+        https://docs.python.org/3/library/venv.html#venv.EnvBuilder.ensure_directories
+    """
     node = request.node
     test_name = node.originalname if isinstance(node, pytest.Function) else node.name
     env_dir = tmp_path / f".venv_iovis_{test_name}"
@@ -31,4 +39,4 @@ def venv(request: pytest.FixtureRequest, tmp_path: Path) -> Iterable[Path]:
     context = builder.create(env_dir)
 
     with builder.activate(context):
-        yield env_dir
+        yield context
