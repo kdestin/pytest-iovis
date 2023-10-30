@@ -54,5 +54,34 @@ If you encounter any problems, please [file an
 issue](https://github.com/kdestin/pytest-iovis/issues) along with a
 detailed description.
 
+## Related Projects
+
+- **[testbook]** is a unit testing framework extension for testing code in Jupyter Notebooks.  It enables the execution
+  and unit testing of code _without_ needing to modify the Jupyter Notebook itself, so that unit tests can be written
+  using [unittest](https://docs.python.org/3/library/unittest.html), [pytest], or another unit testing framework.
+
+  `testbook` and `pytest-iovis` have orthogonal goals, but happen to compliment each other fairly well. Example:
+
+  ```python
+  from testbook import testbook
+
+
+  @pytest.fixture()
+  def tb(notebook_path: Path):
+      with testbook(notebook_path, execute=True) as tb_obj:
+          yield tb_obj
+
+
+  @pytest.mark.notebook("path/to/notebook.ipynb")
+  def test_notebook(tb) -> None:
+      func = tb.get("func")
+
+      assert func(1, 2) == 3
+  ```
+
+- **[pytest-notebook]** plugin uses approval/snapshot testing to guard against regressions in notebook output.
+
 [jupyter notebooks]: https://jupyter.org/
 [pytest]: https://docs.pytest.org/en/latest/
+[pytest-notebook]: https://github.com/chrisjsewell/pytest-notebook
+[testbook]: https://github.com/nteract/testbook
