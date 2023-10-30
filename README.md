@@ -4,7 +4,8 @@
 
 [![Python versions](https://img.shields.io/pypi/pyversions/pytest-iovis.svg)](https://pypi.org/project/pytest-iovis)
 
-A Pytest plugin to enable Jupyter Notebook testing with iovis
+A plugin that lets developers leverage [pytest] to run/test [Jupyter Notebooks], with some included batteries for
+getting started.
 
 ## Features
 
@@ -52,3 +53,6 @@ free and open source software
 If you encounter any problems, please [file an
 issue](https://github.com/kdestin/pytest-iovis/issues) along with a
 detailed description.
+
+[jupyter notebooks]: https://jupyter.org/
+[pytest]: https://docs.pytest.org/en/latest/
