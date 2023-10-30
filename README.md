@@ -6,14 +6,6 @@
 
 A Pytest plugin to enable Jupyter Notebook testing with iovis
 
-______________________________________________________________________
-
-This [pytest](https://github.com/pytest-dev/pytest) plugin was generated
-with [Cookiecutter](https://github.com/audreyr/cookiecutter) along with
-[@hackebrot](https://github.com/hackebrot)'s
-[cookiecutter-pytest-plugin](https://github.com/pytest-dev/cookiecutter-pytest-plugin)
-template.
-
 ## Features
 
 - TODO
