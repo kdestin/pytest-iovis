@@ -81,6 +81,12 @@ detailed description.
 
 - **[pytest-notebook]** plugin uses approval/snapshot testing to guard against regressions in notebook output.
 
+## Plugin Name
+
+_Iovis_ is the singular [genitive case](https://en.wikipedia.org/wiki/Genitive_case) of _Iuppiter_.
+
+Which is the Latin name of the Roman god Jupiter, from which the planet and [Jupyter Notebooks] take their namesake.
+
 [jupyter notebooks]: https://jupyter.org/
 [pytest]: https://docs.pytest.org/en/latest/
 [pytest-notebook]: https://github.com/chrisjsewell/pytest-notebook
