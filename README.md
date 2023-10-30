@@ -16,13 +16,20 @@ A Pytest plugin to enable Jupyter Notebook testing with iovis
 
 ## Installation
 
-You can install "pytest-iovis" via
-[pip](https://pypi.org/project/pip/) from
-[PyPI](https://pypi.org/project):
+You can install "pytest-iovis" with its default notebook runner via:
 
 ```
-$ pip install pytest-iovis
+$ pip install 'git+https://github.com/kdestin/pytest-iovis.git[papermill]'
 ```
+
+If the bundled runner is not needed:
+
+```
+$ pip install git+https://github.com/kdestin/pytest-iovis.git
+```
+
+**Note**: This does not install _any_ kernels for running notebooks. Users should install notebook kernels separately
+(e.g. `pip install ipykernel`).
 
 ## Usage
 
