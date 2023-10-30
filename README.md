@@ -11,10 +11,6 @@ getting started.
 
 - TODO
 
-## Requirements
-
-- TODO
-
 ## Installation
 
 You can install "pytest-iovis" with its default notebook runner via:
@@ -41,12 +37,6 @@ $ pip install git+https://github.com/kdestin/pytest-iovis.git
 Contributions are very welcome. Tests can be run with
 [tox](https://tox.readthedocs.io/en/latest/), please ensure the coverage
 at least stays the same before you submit a pull request.
-
-## License
-
-Distributed under the terms of the
-[MIT](http://opensource.org/licenses/MIT) license, "pytest-iovis" is
-free and open source software
 
 ## Issues
 
