@@ -1,5 +1,5 @@
 import types
-from typing import TYPE_CHECKING, Callable, Iterable, List, Optional, cast
+from typing import TYPE_CHECKING, Callable, List, Optional, cast
 
 import pytest
 from typing_extensions import Self
@@ -20,11 +20,6 @@ class JupyterNotebookFile(pytest.Module):
         self._test_functions = test_functions
         """The test functions to generate for the collected notebook."""
 
-    def collect(self) -> Iterable[pytest.Function]:
-        """Collect children pytest.Items for this collector."""
-        for f in self._test_functions:
-            yield from self.ihook.pytest_pycollect_makeitem(collector=self, name=f.__name__, obj=f) or []
-
     def _getobj(self) -> types.ModuleType:
         """Get the underlying Python object.
 
@@ -33,6 +28,10 @@ class JupyterNotebookFile(pytest.Module):
             This is override is necessary but somewhat fragile, since `_getobj` is not part of pytest.Module's public
             api. Collectors in _pytest.python use _getobj to fetch an instance of the actual object they represent
             (Package, Module, Class, Function, etc...).
+
+            The returned module is dynamically built, populated with provided test functions. It then participates in
+            pytest's normal collection process for Python test functions. Which allows us to fully leverage features
+            like parametrization and fixtures.
         """
         module = types.ModuleType(name="jupyter_notebook_collector")
 
