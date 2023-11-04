@@ -38,8 +38,7 @@ Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for instructions on how to contr
 
 ## Issues
 
-If you encounter any problems, please [file an
-issue](https://github.com/kdestin/pytest-iovis/issues) along with a
+If you encounter any problems, please [file an issue](https://github.com/kdestin/pytest-iovis/issues) along with a
 detailed description.
 
 ## Related Projects
