@@ -34,9 +34,7 @@ $ pip install git+https://github.com/kdestin/pytest-iovis.git
 
 ## Contributing
 
-Contributions are very welcome. Tests can be run with
-[tox](https://tox.readthedocs.io/en/latest/), please ensure the coverage
-at least stays the same before you submit a pull request.
+Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for instructions on how to contribute.
 
 ## Issues
 
