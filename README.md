@@ -1,9 +1,5 @@
 # pytest-iovis
 
-[![PyPI version](https://img.shields.io/pypi/v/pytest-iovis.svg)](https://pypi.org/project/pytest-iovis)
-
-[![Python versions](https://img.shields.io/pypi/pyversions/pytest-iovis.svg)](https://pypi.org/project/pytest-iovis)
-
 A plugin that lets developers leverage [pytest] to run/test [Jupyter Notebooks], with some included batteries for
 getting started.
 
