@@ -3,6 +3,23 @@
 A plugin that lets developers leverage [pytest] to run/test [Jupyter Notebooks], with some included batteries for
 getting started.
 
+```console
+$ pytest notebooks/ --verbose
+================================= test session starts ==================================
+platform linux -- Python 3.8.18, pytest-7.4.3, pluggy-1.3.0 -- /usr/bin/python3
+rootdir: /home/user/Documents/git-repository
+plugins: iovis-0.1.0
+collected 5 items
+
+notebooks/bar.ipynb::test_notebook_runs PASSED                                    [1/5]
+notebooks/baz.ipynb::test_notebook_runs PASSED                                    [2/5]
+notebooks/foo.ipynb::test_produces_expected_output PASSED                         [3/5]
+notebooks/foo.ipynb::TestMetadata::test_extra_metadata_removed PASSED             [4/5]
+notebooks/foo.ipynb::TestMetadata::test_kernelspec_in_allowlist PASSED            [5/5]
+
+================================== 5 passed in 2.63s ===================================
+```
+
 ## Features
 
 - TODO
