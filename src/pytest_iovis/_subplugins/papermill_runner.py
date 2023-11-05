@@ -12,7 +12,7 @@ from .notebook_marker import NotebookMarkerHandler
 
 def test_notebook_runs(
     notebook_path: Path,
-    papermill_output_path: Path,
+    papermill_output_path: Optional[Path],
     papermill_parameters: Dict[str, Any],
     papermill_extra_arguments: List[str],
 ) -> None:
