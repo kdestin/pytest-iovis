@@ -15,7 +15,7 @@ class JupyterNotebookFile(pytest.Module):
         self, *args: object, test_functions: List[Union[Type[object], Callable[..., object]]], **kwargs: object
     ) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        self.test_functions = test_functions
+        self._test_functions = test_functions
         """The test functions to generate for the collected notebook."""
 
     def _getobj(self) -> types.ModuleType:
@@ -33,7 +33,7 @@ class JupyterNotebookFile(pytest.Module):
         """
         module = types.ModuleType(name="jupyter_notebook_collector")
 
-        for f in self.test_functions:
+        for f in self._test_functions:
             # Need to add test functions to the module since pytest tries to access them
             setattr(module, f.__name__, f)
 

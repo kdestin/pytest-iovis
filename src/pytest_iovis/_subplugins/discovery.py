@@ -1,29 +1,11 @@
-import contextlib
-import heapq
+import enum
 import os
 import types
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import (
-    Callable,
-    Dict,
-    Generator,
-    Generic,
-    Iterable,
-    Iterator,
-    List,
-    NamedTuple,
-    Optional,
-    Protocol,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-)
+from typing import Callable, Dict, Generic, Iterable, List, Optional, Protocol, Tuple, Type, TypeVar, Union, cast
 
-import pluggy
 import pytest
 from typing_extensions import Self, TypeAlias, TypeGuard
 
@@ -32,7 +14,6 @@ from .._utils import partition
 
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
-T_File = TypeVar("T_File", bound=pytest.File)
 T = TypeVar("T")
 
 TestObject = Union[Type[object], T_OpaqueCallable]
@@ -49,105 +30,9 @@ class NotebookPathArg:
     """The absolute path to the file."""
 
 
-class FileDelayer(Generic[T_File]):
-    """Delays Collection of a pytest.File collectors until other collectors have been collected."""
-
-    def __init__(self, collector_type: Type[T_File]) -> None:
-        self._file_collector_type: Type[T_File] = collector_type
-        """The collector type to delay"""
-        self._DELAYED_KEY = pytest.StashKey[List[T_File]]()
-        """Key that maps to a list of delayed collectors. Should be used on a session stash."""
-
-        self._REMAINING_CALLS_KEY = pytest.StashKey[int]()
-        """Key that maps to the expected remaining number of calls of pytest_make_collect_report with a
-        pytest.File argument. Should be used on a session stash.
-        """
-
-        self._IS_COLLECTING = pytest.StashKey[bool]()
-        """Key that maps to a bool which is set to True if pytest doing test collection as part of its documented
-        collection protocol (i.e. pytest_collection has been called)."""
-
-    def is_last_make_collect_report_for_file(self, session: pytest.Session) -> bool:
-        """Whether this is the last pytest_make_collect_report hook called on a pytest.File.
-
-        Should only be called within pytest_make_collect_report_hook
-        """
-        return session.stash.get(self._REMAINING_CALLS_KEY, None) == 0
-
-    def remove_delayed(self, report: pytest.CollectReport, delayed_collectors: List[T_File]) -> None:
-        """Remove delayed collectors from pytest.CollectReport.
-
-        :param pytest.CollectReport report: The pytest.CollectReport to modify
-        :param List[T_File] delayed_collectors: The current list of delayed collectors. Will be modified in place.
-        """
-
-        def is_file_collector(item: Union[pytest.Item, pytest.Collector]) -> TypeGuard[T_File]:
-            return isinstance(item, self._file_collector_type)
-
-        new_delayed_collectors, report.result = partition(report.result, is_file_collector)
-
-        delayed_collectors.extend(new_delayed_collectors)
-
-    def add_delayed(self, report: pytest.CollectReport, delayed_collectors: List[T_File]) -> None:
-        """Add delayed collectors to pytest.CollectReport. Stored collectors are cleared.
-
-        :param pytest.CollectReport report: The pytest.CollectReport to modify
-        :param List[T_File] delayed_collectors: The current list of delayed collectors. Will be cleared.
-        """
-        report.result.extend(delayed_collectors)
-        delayed_collectors.clear()
-
-    def get_delayed(self, session: pytest.Session) -> List[T_File]:
-        return session.stash[self._DELAYED_KEY]
-
-    def is_pytest_collecting(self, session: pytest.Session) -> bool:
-        """Return whether pytest_collection has been called.
-
-        This to differentiate when a call to a collection related hook is part of the normal collection protocol,
-        or directly as part of something like `pytest --fixtures`.
-        """
-        return session.stash.get(self._IS_COLLECTING, False) is True
-
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
-        """Initialize session variables."""
-        session.stash[self._DELAYED_KEY] = cast(List[T_File], [])
-        session.stash[self._REMAINING_CALLS_KEY] = 1  # Start at 1 since collect is always called on the session itself
-        session.stash[self._IS_COLLECTING] = True
-
-        yield
-
-        del session.stash[self._IS_COLLECTING]
-        del session.stash[self._DELAYED_KEY]
-        del session.stash[self._REMAINING_CALLS_KEY]
-
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_make_collect_report(
-        self, collector: pytest.Collector
-    ) -> Generator[None, pluggy.Result[pytest.CollectReport], None]:
-        result: pluggy.Result[pytest.CollectReport] = yield
-
-        session = collector.session
-
-        if not self.is_pytest_collecting(session):
-            return
-
-        if isinstance(collector, self._file_collector_type):
-            return
-
-        report = result.get_result()
-        delayed_collectors = self.get_delayed(session)
-
-        if isinstance(collector, (pytest.Session, pytest.File)):
-            session.stash[self._REMAINING_CALLS_KEY] -= 1
-
-        self.remove_delayed(report, delayed_collectors)
-
-        # This hook will be called once for every collected file
-        session.stash[self._REMAINING_CALLS_KEY] += sum(isinstance(r, pytest.File) for r in report.result)
-
-
 class SetDefaultForFileHookFunction(Protocol):
+    """The type of the user-provided callable used to specify tests for a single file."""
+
     def __call__(
         self,
         *,
@@ -180,6 +65,13 @@ class Node(Generic[T]):
     children: Dict[str, Self] = field(default_factory=dict)
 
 
+class InsertType(enum.Enum):
+    LEAF = enum.auto()
+    """Whether the inserted path is not a prefix of another value in the trie."""
+    PREFIX = enum.auto()
+    """Whether the inserted path is a prefix of another value in the trie."""
+
+
 class PathTrie(Generic[T]):
     """A trie that accepts the parts (i.e `Path.parts`) of an absolute path, and stores some associated payload."""
 
@@ -191,19 +83,39 @@ class PathTrie(Generic[T]):
         """Normalize the path argument."""
         return Path(p).resolve()
 
-    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> None:
+    def __contains__(self, obj: object) -> bool:
+        """Return whether the PathTrie has a payload for the given object."""
+        if not isinstance(obj, (str, os.PathLike)):
+            return False
+
+        curr = self.root
+
+        for part in self._normalize(obj).parts:
+            if part not in curr.children:
+                return False
+            curr = curr.children[part]
+
+        return curr.payload is not NoPayload
+
+    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> InsertType:
         """Insert a payload for a given path.
 
         :param p: The path to insert. If `None`, will insert at root
         :type p: Optional[Union[str, "os.PathLike[str]"]]
         :param T payload: The payload to store
+        :returns: Whether or not the inserted path is the prefix of another path in the trie.
+        :rtype: InsertType
         """
         curr = self.root
+        insert_type = InsertType.PREFIX
 
         for part in self._normalize(p).parts if p is not None else ():
+            if part not in curr.children:
+                insert_type = InsertType.LEAF
             curr = curr.children.setdefault(part, Node())
 
         curr.payload = payload
+        return insert_type
 
     def longest_common_prefix(self, p: Union[str, "os.PathLike[str]"]) -> T:
         """Retrieve the payload of the longest matching prefix of the argument present in the trie.
@@ -231,9 +143,46 @@ class PathTrie(Generic[T]):
         return cast(T, result)
 
 
-class TestFunctionManager:
-    __DEFAULT_FUNCTION_RESOLVERS = pytest.StashKey[List[SetDefaultHookFunction]]()
-    __PATH_TRIE = pytest.StashKey[PathTrie[Tuple[TestObject, ...]]]()
+class ScopedFunctionHandler:
+    """A plugin that builds an index that can be used to query which test function to use for a given path.
+
+    .. note::
+
+        This plugin relies on some _technically_ undocumented behavior of pytest.
+
+        `pytest` discovers `conftest.py`'s as it performs collection, registering new ones it finds _as soon_ as it
+        descends into a new directory. This ordering is perfect for us, since it means that we can do an online build
+        of our index as pytest discovers `conftest.py`'s. And we know that once its time to collect a file that we
+        care about, all the relevant conftest.py's are in our index.
+
+    """
+
+    def __init__(self) -> None:
+        # Assigning to the instance instead of stashing in a session because the session object isn't available in
+        # pytest_plugin_registered.
+        self.file_hooks: Dict[Path, SetDefaultHookFunction] = {}
+        self.path_trie: Optional[PathTrie[Tuple[TestObject, ...]]] = None
+
+    @pytest.hookimpl(trylast=True)
+    def pytest_configure(self, config: pytest.Config) -> None:
+        """Initialize our path_trie with the global test functions and any already collected conftest.py."""
+        manager = config.pluginmanager
+        all_plugins = manager.get_plugins()
+        conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
+
+        non_conftest_hooks = self.call_hook_without(manager, conftest_plugins)
+        result = non_conftest_hooks(inherited=(), for_notebook=lambda _: lambda _: None)
+
+        global_test_functions = tuple(result or ())
+
+        self.path_trie = PathTrie(root_payload=global_test_functions)
+        for conftest in sorted(conftest_plugins, key=lambda c: Path(c.__file__ or "")):
+            assert conftest.__file__
+            self.add_scoped_hook(
+                manager,
+                Path(conftest.__file__).parent,
+                self.call_hook_without(manager, all_plugins.difference({conftest})),
+            )
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
         """Register the `pytest_iovis_set_default_functions` hook."""
@@ -272,116 +221,86 @@ class TestFunctionManager:
     def is_conftest(obj: object) -> TypeGuard[types.ModuleType]:
         return isinstance(obj, types.ModuleType) and Path(obj.__file__ or ".").name == "conftest.py"
 
-    @contextlib.contextmanager
-    def with_populated_trie(self, session: pytest.Session) -> Iterator[None]:
-        """Build a path trie that can be used to compute test functions for a scope.
+    @staticmethod
+    def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetDefaultHookFunction:
+        """Return the hook function that runs on all plugins except the supplied ones."""
+        return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
 
-        The path trie is made available for the interior scope of the context manager.
+    def pytest_plugin_registered(self, plugin: object, manager: pytest.PytestPluginManager) -> None:
+        if not self.is_conftest(plugin):
+            return
 
-        :param pytest.Session session: The pytest session
+        assert plugin.__file__
+
+        self.add_scoped_hook(
+            manager,
+            Path(plugin.__file__).parent,
+            self.call_hook_without(manager, manager.get_plugins().difference({plugin})),
+        )
+
+    def add_scoped_hook(self, manager: pytest.PytestPluginManager, scope: Path, hook: SetDefaultHookFunction) -> None:
+        """Invoke the hook function for the specified scope, and add the result to our function index.
+
+        :param pytest.PytestPluginManager manager: The pytest plugin manager for the current session
+        :param Path scope: The scope the hook applies to
+        :param SetDefaultHookFunction hook: The hook function to invoke
         """
+        path_trie = self.path_trie
+        if path_trie is None:
+            return
 
-        def call_hook_without(plugins: Iterable[object]) -> SetDefaultHookFunction:
-            """Return the hook function that runs on all plugins except the supplied ones."""
-            return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
+        if scope in path_trie:
+            return
 
-        class ScopedHook(NamedTuple):
-            path: Path
-            hook: SetDefaultHookFunction
+        empty_hook_caller = manager.subset_hook_caller("pytest_iovis_set_default_functions", manager.get_plugins())
 
         def make_register_fn(
-            confdir: Path, scoped_confs_heap: List[ScopedHook], empty_hook_caller: pluggy.HookCaller
+            confdir: Path,
         ) -> Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]]:
             def for_notebook(path: Union[str, "os.PathLike[str]"]) -> Callable[[SetDefaultForFileHookFunction], None]:
-                pathlib_path = Path(path).resolve()
+                pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
                 assert confdir in pathlib_path.parents
-                assert pathlib_path.is_file()
+                assert pathlib_path.is_file(), pathlib_path
 
                 def decorator(f: SetDefaultForFileHookFunction) -> None:
                     def pytest_iovis_set_default_functions(
                         inherited: Tuple[TestObject, ...], for_notebook: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
-                        return cast(Iterable[TestObject], empty_hook_caller.call_extra([f], {"inherited": inherited}))
+                        return cast(
+                            Iterable[TestObject],
+                            empty_hook_caller.call_extra(
+                                [f], {"inherited": inherited, "for_notebook": make_register_fn(pathlib_path)}
+                            ),
+                        )
 
-                    heapq.heappush(
-                        scoped_confs_heap, ScopedHook(path=pathlib_path, hook=pytest_iovis_set_default_functions)
-                    )
+                    self.file_hooks[pathlib_path] = pytest_iovis_set_default_functions
 
                 return decorator
 
             return for_notebook
 
-        def build_payloads(
-            confs: Iterable[types.ModuleType], default: Tuple[TestObject, ...]
-        ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
-            """Return an iterable of tuples suitable to be unpacked as arguments to PathTrie.insert.
+        current_funcs = self.test_functions_for(scope)
+        functions_for_scope = hook(inherited=tuple(current_funcs), for_notebook=make_register_fn(scope))
+        if functions_for_scope is None:
+            return
 
-            Performs a pre-order traversal on conftest plugins based on their location in the filesystem tree to
-            accumulate the test functions specified by those conftests.
+        # Sanity check to make sure we're getting scopes that are always more specific
+        assert path_trie.insert(scope, tuple(functions_for_scope)) == InsertType.LEAF
 
-            :param Iterable[types.ModuleType] confs: The conftest modules
-            :param Tuple[TestObject,...] default: The root payload
-            """
-            scoped_confs = [
-                ScopedHook(
-                    path=Path(conftest.__file__).parent, hook=call_hook_without(all_plugins.difference({conftest}))
-                )
-                for conftest in confs
-                if conftest.__file__
-            ]
+    def add_scoped_hook_for_file(self, manager: pytest.PytestPluginManager, path: Path) -> None:
+        """Invoke the hook function for the specified scope, and add the result to our function index.
 
-            # Ensure that scoped hooks are ordered as if we did a pre-order traversal (which happens with pathlib's
-            # default comparator).
-            heapq.heapify(scoped_confs)
+        :param pytest.PytestPluginManager manager: The pytest plugin manager for the current session
+        :param Path scope: The scope the hook applies to
+        :param SetDefaultHookFunction hook: The hook function to invoke
+        """
+        assert path.is_file()
+        file_hooks = self.file_hooks
+        hook = file_hooks.pop(path, None)
+        if hook is not None:
+            self.add_scoped_hook(manager, scope=path, hook=hook)
 
-            def _build_payloads_impl(
-                prev: Optional[Path], curr_objs: Tuple[TestObject, ...]
-            ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
-                while scoped_confs:
-                    root = scoped_confs[0]
-
-                    if prev is not None and prev not in root.path.parents:
-                        return
-
-                    heapq.heappop(scoped_confs)
-                    result = root.hook(
-                        inherited=curr_objs, for_notebook=make_register_fn(root.path, scoped_confs, empty_hook_caller)
-                    )
-
-                    if result is None:
-                        continue
-
-                    funcs = tuple(result)
-                    yield (root.path, funcs)
-                    yield from _build_payloads_impl(root.path, funcs)
-
-            yield from _build_payloads_impl(None, (default))
-
-        manager = session.config.pluginmanager
-
-        all_plugins = manager.get_plugins()
-        empty_hook_caller: pluggy.HookCaller = manager.subset_hook_caller(
-            "pytest_iovis_set_default_functions", all_plugins
-        )
-        conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
-
-        non_conftest_hooks = call_hook_without(conftest_plugins)
-        result = non_conftest_hooks(inherited=(), for_notebook=lambda _: lambda _: None)
-
-        global_test_functions = tuple(result or ())
-
-        path_trie = PathTrie(root_payload=global_test_functions)
-
-        for path, payload in build_payloads(conftest_plugins, default=global_test_functions):
-            path_trie.insert(path, payload)
-
-        session.stash[self.__PATH_TRIE] = path_trie
-
-        yield
-
-        del session.stash[self.__PATH_TRIE]
-
-    def test_functions_for(self, session: pytest.Session, p: Union[str, "os.PathLike[str]"]) -> Iterable[TestObject]:
+    def test_functions_for(self, p: Union[str, "os.PathLike[str]"]) -> Iterable[TestObject]:
         """Compute the test functions that are in-scope at a given path.
 
         This function should be called within TestFunctionManager.with_populated_trie.
@@ -393,12 +312,8 @@ class TestFunctionManager:
         :returns: A list of tests
         :rtype: Iterable[TestObject]
         """
-        path_trie = session.stash.get(self.__PATH_TRIE, None)
-
-        if path_trie is None:
-            return []
-
-        return path_trie.longest_common_prefix(p)
+        path_trie = self.path_trie
+        return path_trie.longest_common_prefix(p) if path_trie is not None else ()
 
 
 class JupyterNotebookDiscoverer:
@@ -406,12 +321,13 @@ class JupyterNotebookDiscoverer:
 
     PLUGIN_NAME = "notebook_discovery"
     """A user facing name that describes this plugin."""
-    __DELAYER_NAME = "jupyter_notebook_file_delayer"
-    __FUNCTION_MANAGER_KEY = pytest.StashKey[TestFunctionManager]()
+    __FUNCTION_HANDLER_KEY = pytest.StashKey[ScopedFunctionHandler]()
+    """The stash key used to retrieve a ScopedFunctionHandler from the config stash."""
     FIXTURE_NAME = "notebook_path"
     """The name of the fixture that will be parametrized by this plugin"""
 
     __PLACEHOLDER_NOTEBOOK_PARAMSET_ID = f"{uuid.uuid4()}{uuid.uuid4()}"
+    """A placeholder parametrization id for the notebook_path fixture that will later be removed."""
 
     @pytest.hookimpl(trylast=True)
     def pytest_iovis_set_default_functions(self) -> Iterable[T_OpaqueCallable]:
@@ -420,68 +336,26 @@ class JupyterNotebookDiscoverer:
 
         yield test_nothing
 
-    def get_delayer(self, session: pytest.Session) -> FileDelayer[JupyterNotebookFile]:
-        """Retrieve the FileDelayer plugin used to delay JupyterNotebookFile collectors."""
-        plugin = session.config.pluginmanager.get_plugin(self.__DELAYER_NAME)
-        if plugin is None:
-            raise ValueError("Plugin was not registered")
-        return cast(FileDelayer[JupyterNotebookFile], plugin)
-
     def pytest_configure(self, config: pytest.Config) -> None:
-        """Register a plugin that delays the collection of JupyterNotebookFiles until after every other file."""
-        config.pluginmanager.register(FileDelayer(JupyterNotebookFile), name=self.__DELAYER_NAME)
-
-        function_manager = TestFunctionManager()
+        """Register a plugin that can be used to query test functions for a given scope."""
+        function_manager = ScopedFunctionHandler()
         config.pluginmanager.register(function_manager)
-        config.stash[self.__FUNCTION_MANAGER_KEY] = function_manager
+        config.stash[self.__FUNCTION_HANDLER_KEY] = function_manager
 
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
         """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
+            func_manager = parent.config.stash[self.__FUNCTION_HANDLER_KEY]
+            func_manager.add_scoped_hook_for_file(parent.config.pluginmanager, file_path)
             return cast(
                 JupyterNotebookFile,
                 JupyterNotebookFile.from_parent(
                     parent,
                     path=file_path,
-                    # Will be populated later
-                    test_functions=[],
+                    test_functions=func_manager.test_functions_for(file_path),
                 ),
             )
         return None
-
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_make_collect_report(
-        self, collector: pytest.Collector
-    ) -> Generator[None, pluggy.Result[pytest.CollectReport], None]:
-        """Remove JupyterNotebookFile collectors that don't need to be collected.
-
-        The JupyterNotebookFile collectors created by this class are unneeded if the user has written at least one
-        test function for the collected file. This function delays the collection of JupyterNotebookFiles so that
-        unneeded collectors can be removed.
-        """
-        result: pluggy.Result[pytest.CollectReport] = yield
-
-        if isinstance(collector, JupyterNotebookFile):
-            return
-
-        report = result.get_result()
-        session = collector.session
-        delayer = self.get_delayer(session)
-        func_manager = session.config.stash[self.__FUNCTION_MANAGER_KEY]
-
-        if not delayer.is_pytest_collecting(session):
-            return
-
-        if delayer.is_last_make_collect_report_for_file(session):
-            delayed_collectors = delayer.get_delayed(session)
-
-            # Compute test functions based on collector path
-            with func_manager.with_populated_trie(session):
-                for c in delayed_collectors:
-                    c.test_functions = list(func_manager.test_functions_for(session, c.path))
-
-            # Queue the collectors for collection
-            delayer.add_delayed(report, delayed_collectors)
 
     @classmethod
     def is_managed_function(cls, item: Union[pytest.Item, pytest.Collector]) -> TypeGuard[pytest.Function]:
