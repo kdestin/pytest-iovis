@@ -2,6 +2,7 @@ import contextlib
 import heapq
 import os
 import types
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
@@ -15,7 +16,6 @@ from typing import (
     NamedTuple,
     Optional,
     Protocol,
-    Set,
     Tuple,
     Type,
     TypeVar,
@@ -29,7 +29,6 @@ from typing_extensions import Self, TypeAlias, TypeGuard
 
 from .._file import JupyterNotebookFile
 from .._utils import partition
-from .notebook_marker import NotebookMarkerHandler
 
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
@@ -37,6 +36,17 @@ T_File = TypeVar("T_File", bound=pytest.File)
 T = TypeVar("T")
 
 TestObject = Union[Type[object], T_OpaqueCallable]
+
+
+@dataclass
+class NotebookPathArg:
+    """A thin wrapper around a pathlib.Path.
+
+    Allows to ensure that we're generating an id for the correct value in pytest_make_parametrize_id.
+    """
+
+    path: Path
+    """The absolute path to the file."""
 
 
 class FileDelayer(Generic[T_File]):
@@ -392,30 +402,16 @@ class TestFunctionManager:
 
 
 class JupyterNotebookDiscoverer:
-    """A pytest plugin that enables auto-discovery of Jupyter notebooks as pytest tests.
-
-    .. note::
-
-        Jupyter Notebooks are *conditionally* collected based on whether a user-defined test function marked
-        with @pytest.mark.notebook that points to that notebook is also collected in the same test session.
-
-        That is, notebook "path/to/notebook.ipynb" will *not* be collected by this plugin if a test like the following
-        has been collected:
-
-            @pytest.mark.notebook("path/to/notebook.ipynb")
-            def test_function(notebook_path):
-                ...
-
-        Implementers Note: This is achieved by delaying the collection of JupyterNotebookFile until all other
-            pytest.File collectors have been collected.
-    """
+    """A pytest plugin that enables auto-discovery of Jupyter notebooks as pytest tests."""
 
     PLUGIN_NAME = "notebook_discovery"
     """A user facing name that describes this plugin."""
-    __USER_DEFINED_PATHS_KEY = pytest.StashKey[Set[Path]]()
-    """A stash key that stores notebook Paths with user-defined test functions. Meant to be used on a session."""
     __DELAYER_NAME = "jupyter_notebook_file_delayer"
     __FUNCTION_MANAGER_KEY = pytest.StashKey[TestFunctionManager]()
+    FIXTURE_NAME = "notebook_path"
+    """The name of the fixture that will be parametrized by this plugin"""
+
+    __PLACEHOLDER_NOTEBOOK_PARAMSET_ID = f"{uuid.uuid4()}{uuid.uuid4()}"
 
     @pytest.hookimpl(trylast=True)
     def pytest_iovis_set_default_functions(self) -> Iterable[T_OpaqueCallable]:
@@ -454,15 +450,6 @@ class JupyterNotebookDiscoverer:
         return None
 
     @pytest.hookimpl(hookwrapper=True)
-    def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
-        """Initialize session variables."""
-        session.stash[self.__USER_DEFINED_PATHS_KEY] = cast(Set[Path], set())
-
-        yield
-
-        del session.stash[self.__USER_DEFINED_PATHS_KEY]
-
-    @pytest.hookimpl(hookwrapper=True)
     def pytest_make_collect_report(
         self, collector: pytest.Collector
     ) -> Generator[None, pluggy.Result[pytest.CollectReport], None]:
@@ -485,9 +472,6 @@ class JupyterNotebookDiscoverer:
         if not delayer.is_pytest_collecting(session):
             return
 
-        seen_user_paths = session.stash[self.__USER_DEFINED_PATHS_KEY]
-        seen_user_paths.update(p for p in map(NotebookMarkerHandler.get_notebook_path, report.result) if p is not None)
-
         if delayer.is_last_make_collect_report_for_file(session):
             delayed_collectors = delayer.get_delayed(session)
 
@@ -495,7 +479,58 @@ class JupyterNotebookDiscoverer:
             with func_manager.with_populated_trie(session):
                 for c in delayed_collectors:
                     c.test_functions = list(func_manager.test_functions_for(session, c.path))
-            # Remove collectors for notebooks that already have a user-defined test function
-            delayed_collectors[:] = [i for i in delayed_collectors if i.path.resolve() not in seen_user_paths]
+
             # Queue the collectors for collection
             delayer.add_delayed(report, delayed_collectors)
+
+    @classmethod
+    def is_managed_function(cls, item: Union[pytest.Item, pytest.Collector]) -> TypeGuard[pytest.Function]:
+        """Check whether the pytest.Item is a pytest.Function that is managed by this plugin."""
+        return isinstance(item, pytest.Function) and item.getparent(JupyterNotebookFile) is not None
+
+    @classmethod
+    def get_notebook_path(cls, item: Union[pytest.Item, pytest.Collector]) -> Optional[Path]:
+        """Get the notebook path associated with a test function."""
+        isParameterizedFunction = isinstance(item, pytest.Function) and hasattr(item, "callspec")
+
+        if not isParameterizedFunction:
+            return None
+
+        if not cls.is_managed_function(item):
+            return None
+
+        try:
+            args = cast(NotebookPathArg, item.callspec.getparam(cls.FIXTURE_NAME))
+            return args.path
+        except ValueError:
+            return None
+
+    def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
+        """Return a placeholder ID when parametrizing on the notebook path fixture that can be later removed."""
+        if not (isinstance(val, NotebookPathArg) and argname == self.FIXTURE_NAME):
+            return None
+
+        return self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID
+
+    def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
+        """Parametrize the `notebook_path` fixture to associate each test function with the notebook path."""
+        if not self.is_managed_function(metafunc.definition):
+            return
+
+        parent = metafunc.definition.getparent(JupyterNotebookFile)
+        assert parent is not None
+        # Indirect Parameterization allow's for the user's input to be used as the test ID, and delay resolving it
+        # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
+        metafunc.parametrize(self.FIXTURE_NAME, [NotebookPathArg(path=parent.path)], indirect=True)
+
+        # Remove our placeholder ID from the ID list
+        for c in metafunc._calls:
+            c._idlist[:] = [s for s in c._idlist if not s.startswith(self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID)]
+
+    def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
+        """Remove empty parametrization brackets."""
+        for item in items:
+            # Remove empty parameterization brackets
+            if self.is_managed_function(item) and item.name.endswith("[]"):
+                item.name = item.name[:-2]
+                item._nodeid = item._nodeid[:-2]

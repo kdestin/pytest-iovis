@@ -3,7 +3,7 @@ import sys
 import pytest
 
 from . import _fixtures
-from ._subplugins import IPythonMarkupPlugin, JupyterNotebookDiscoverer, NotebookMarkerHandler, PapermillTestRunner
+from ._subplugins import IPythonMarkupPlugin, JupyterNotebookDiscoverer, PapermillTestRunner
 
 
 def pytest_configure(config: pytest.Config) -> None:
@@ -16,5 +16,4 @@ def pytest_configure(config: pytest.Config) -> None:
     config.pluginmanager.register(
         JupyterNotebookDiscoverer(), name=f"{plugin_name}.{JupyterNotebookDiscoverer.PLUGIN_NAME}"
     )
-    config.pluginmanager.register(NotebookMarkerHandler(), name=f"{plugin_name}.{NotebookMarkerHandler.PLUGIN_NAME}")
     config.pluginmanager.register(PapermillTestRunner(), name=f"{plugin_name}.{PapermillTestRunner.PLUGIN_NAME}")

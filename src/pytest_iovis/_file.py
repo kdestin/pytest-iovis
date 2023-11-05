@@ -37,7 +37,4 @@ class JupyterNotebookFile(pytest.Module):
             # Need to add test functions to the module since pytest tries to access them
             setattr(module, f.__name__, f)
 
-        # Apply the notebook mark to all test functions in the module
-        module.pytestmark = pytest.mark.notebook(self.path)  # type: ignore[attr-defined]
-
         return module

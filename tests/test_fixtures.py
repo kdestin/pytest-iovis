@@ -17,23 +17,23 @@ def test_documentation(testdir: pytest.Testdir) -> None:
     )
 
 
-def test_notebook_path(testdir: pytest.Testdir) -> None:
-    notebook_path = Path("notebooks", "test.ipynb")
-    testdir.makefile("ipynb", **{str(notebook_path): ""})
-    testdir.makepyfile(
+def test_notebook_path(testdir: pytest.Testdir, dummy_notebook: Path) -> None:
+    testdir.makeconftest(
         f"""
         from pathlib import Path
 
         import pytest
 
-        @pytest.mark.notebook({str(notebook_path)!r})
         def test_fixture(notebook_path: Path):
             assert notebook_path.is_absolute(), "notebook_path should be an absolute path"
-            assert notebook_path == Path({str(testdir.tmpdir)!r}, {str(notebook_path)!r})
+            assert notebook_path == Path({str(dummy_notebook)!r})
+
+        def pytest_iovis_set_default_functions():
+            yield test_fixture
     """
     )
 
-    res = testdir.runpytest("test_notebook_path.py")
+    res = testdir.runpytest(dummy_notebook)
 
     res.assert_outcomes(passed=1)
 

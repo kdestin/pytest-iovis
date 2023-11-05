@@ -25,42 +25,43 @@ def test_documentation(testdir: pytest.Testdir) -> None:
 
 def test_papermill_parameters(dummy_notebook: Path, testdir: pytest.Testdir) -> None:
     """Validate that papermill_parameters fixture is a dictionary."""
-    testdir.makepyfile(
-        f"""
+    testdir.makeconftest(
+        """
         import pytest
 
-        @pytest.mark.notebook({str(dummy_notebook)!r})
         def test_fixture(notebook_path, papermill_parameters):
             assert isinstance(papermill_parameters, dict)
+
+        def pytest_iovis_set_default_functions():
+            yield test_fixture
     """
     )
 
-    res = testdir.runpytest("test_papermill_parameters.py")
+    res = testdir.runpytest(dummy_notebook)
 
     res.assert_outcomes(passed=1)
 
     assert res.ret == 0, "pytest exited non-zero exitcode"
 
 
-def test_papermill_output_path(testdir: pytest.Testdir) -> None:
-    notebook_path = Path("notebooks", "test.ipynb")
-
-    testdir.makefile("ipynb", **{str(notebook_path): ""})
-    testdir.makepyfile(
+def test_papermill_output_path(testdir: pytest.Testdir, dummy_notebook: Path) -> None:
+    testdir.makeconftest(
         f"""
         from pathlib import Path
 
         import pytest
 
-        @pytest.mark.notebook({str(notebook_path)!r})
         def test_fixture(tmp_path: Path, papermill_output_path: Path):
             assert papermill_output_path.is_absolute(), "notebook_path should be an absolute path"
             assert tmp_path in papermill_output_path.parents, "papermill_output_path should be in a temp directory"
-            assert papermill_output_path.name == "test.output.ipynb"
+            assert papermill_output_path.name == {dummy_notebook.with_suffix('.output.ipynb').name!r}
+
+        def pytest_iovis_set_default_functions():
+            yield test_fixture
     """
     )
 
-    res = testdir.runpytest("test_papermill_output_path.py")
+    res = testdir.runpytest(dummy_notebook)
 
     res.assert_outcomes(passed=1)
 
@@ -69,17 +70,19 @@ def test_papermill_output_path(testdir: pytest.Testdir) -> None:
 
 def test_papermill_extra_arguments(dummy_notebook: Path, testdir: pytest.Testdir) -> None:
     """Validate that papermill_parameters fixture is a list."""
-    testdir.makepyfile(
-        f"""
+    testdir.makeconftest(
+        """
         import pytest
 
-        @pytest.mark.notebook({str(dummy_notebook)!r})
         def test_fixture(notebook_path, papermill_extra_arguments):
             assert isinstance(papermill_extra_arguments, list)
+
+        def pytest_iovis_set_default_functions():
+            yield test_fixture
     """
     )
 
-    res = testdir.runpytest("test_papermill_extra_arguments.py")
+    res = testdir.runpytest(dummy_notebook)
 
     res.assert_outcomes(passed=1)
 

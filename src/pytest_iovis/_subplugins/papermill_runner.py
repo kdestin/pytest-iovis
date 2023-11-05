@@ -5,8 +5,8 @@ import papermill as pm  # type: ignore[import-untyped]
 import pytest
 from nbformat import NotebookNode
 
+from .discovery import JupyterNotebookDiscoverer
 from .markup import IPythonMarkupPlugin
-from .notebook_marker import NotebookMarkerHandler
 
 
 def test_notebook_runs(
@@ -76,7 +76,7 @@ class PapermillTestRunner:
         report: Union[pytest.CollectReport, pytest.TestReport],
     ) -> None:
         """Reformat the failure representation if the exception is a papermill.PapermillExecutionError."""
-        if not (isinstance(report, pytest.TestReport) and NotebookMarkerHandler.is_marked_function(node)):
+        if not (isinstance(report, pytest.TestReport) and JupyterNotebookDiscoverer.is_managed_function(node)):
             return
 
         if call.when != "call":

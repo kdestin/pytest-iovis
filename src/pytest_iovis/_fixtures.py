@@ -4,21 +4,21 @@ from typing import Iterable, Optional
 
 import pytest
 
-from ._subplugins import NotebookMarkerArg, NotebookMarkerHandler
+from ._subplugins import NotebookPathArg
 from ._venv_builder import ThinEnvBuilder
 
 
-@pytest.fixture(name=NotebookMarkerHandler.FIXTURE_NAME)
+@pytest.fixture()
 def notebook_path(request: pytest.FixtureRequest) -> Path:
     """Return the path to the notebook under test."""
     param: Optional[object] = getattr(request, "param", None)
-    if not isinstance(param, NotebookMarkerArg):
+    if not isinstance(param, NotebookPathArg):
         pytest.fail(
-            f"Fixture {notebook_path.__name__!r} requested from function without @pytest.mark.notebook marker.",
+            f"Fixture {notebook_path.__name__!r} requested from function not managed by pytest-iovis.",
             pytrace=False,
         )
 
-    return param.resolved_path
+    return param.path
 
 
 @pytest.fixture()

@@ -21,9 +21,8 @@ plugin as follows:
 """
 import importlib
 
-from .discovery import JupyterNotebookDiscoverer
+from .discovery import JupyterNotebookDiscoverer, NotebookPathArg
 from .markup import IPythonMarkupPlugin
-from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
 
 if importlib.util.find_spec("papermill") is not None:
     from .papermill_runner import PapermillTestRunner
@@ -36,7 +35,6 @@ else:
 __all__ = [
     "IPythonMarkupPlugin",
     "JupyterNotebookDiscoverer",
-    "NotebookMarkerArg",
-    "NotebookMarkerHandler",
+    "NotebookPathArg",
     "PapermillTestRunner",
 ]
