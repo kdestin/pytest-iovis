@@ -141,3 +141,43 @@ def test_class_object_fan_out(
         ],
         consecutive=True,
     )
+
+
+def test_grouping_preserves_markers(dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+    """Validate that test grouping does not lose markers unexpectedly."""
+    testfile = testdir.makepyfile(
+        f"""
+        import pytest
+
+        pytestmark=pytest.mark.foo
+
+        def assert_mark(mark, name, *args, **kwargs):
+            assert mark.name == name
+            assert mark.args == args
+            assert mark.kwargs == kwargs
+
+        @pytest.mark.notebook({str(dummy_notebook)!r})
+        def test_bar(notebook_path, request):
+            markers = list(request.node.iter_markers())
+
+
+            assert len(markers) == 2, str(markers)
+            assert_mark(markers[0], "notebook", {str(dummy_notebook)!r})
+            assert_mark(markers[1], "foo")
+
+
+        @pytest.mark.garply
+        class TestBaz:
+            @pytest.mark.notebook({str(dummy_notebook)!r})
+            def test_quux(self, notebook_path, request):
+                markers = list(request.node.iter_markers())
+                assert len(markers) == 3, str(markers)
+                assert_mark(markers[0], "notebook", {str(dummy_notebook)!r})
+                assert_mark(markers[1], "garply")
+                assert_mark(markers[2], "foo")
+    """
+    )
+
+    res = testdir.runpytest(testfile, "--verbose")
+
+    res.assert_outcomes(passed=2)

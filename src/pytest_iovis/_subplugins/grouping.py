@@ -1,6 +1,6 @@
 import uuid
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, cast
 
 import pytest
 
@@ -68,11 +68,36 @@ class NotebookGrouper:
 
         """
 
-        def make_reparent(session: pytest.Session) -> Callable[[pytest.Function], Optional[pytest.Collector]]:
+        def make_reparent(
+            session: pytest.Session,
+        ) -> Callable[[pytest.Function], Optional[JupyterNotebookTestFunction]]:
             notebook_paths: Dict[Path, Dict[Optional[pytest.Class], pytest.Collector]] = {}
             """Absolute Path -> None (for root file collector), pytest.Class -> new Parent."""
 
-            def reparent(item: pytest.Item) -> Optional[pytest.Collector]:
+            def to_mark_decorator(m: pytest.Mark) -> pytest.MarkDecorator:
+                """Convert a pytest.Mark to an equivalent pytest.MarkDecorator.
+
+                :param pytest.Mark m: A pytest.Mark
+                :return: The equivalent pytest.MarkDecorator
+                :rtype: pytest.MarkDecorator
+                """
+                return cast(pytest.MarkDecorator, getattr(pytest.mark, m.name)(*m.args, **m.kwargs))
+
+            def reparent(item: pytest.Function) -> Optional[JupyterNotebookTestFunction]:
+                """Return an equivalent pytest.Function that has a JupyterNotebookFile in its ancestry.
+
+                If the pytest.Function's immediate parent is a pytest.Class, a copy of the class is made with a
+                JupyterNotebookFile as its parent.
+
+                Care is taken to ensure that `iter_markers()` returns equivalent lists for the original and reparented
+                items.
+
+                :param pytest.Function item: The item to reparent
+                :return: Either
+                  * An equivalent item with a new parent
+                  * None if a parent couldn't be determined
+                :rtype: Optional[pytest.Function]
+                """
                 path: Optional[Path] = NotebookMarkerHandler.get_notebook_path(item)
 
                 if path is None:
@@ -84,15 +109,27 @@ class NotebookGrouper:
                 )
 
                 if isinstance(item.parent, pytest.File):
-                    return file_root
-                if isinstance(item.parent, pytest.Class):
-                    return parents.setdefault(
-                        item.parent,
-                        pytest.Class.from_parent(  # type: ignore[no-untyped-call]
-                            file_root, name=item.parent.name, obj=item.parent.obj
-                        ),
-                    )
+                    new_item = JupyterNotebookTestFunction.from_function(file_root, item)
 
+                    # We're going to lose the original parent's markers, so add them to the new item
+                    for m in list(item.parent.iter_markers()):
+                        new_item.add_marker(to_mark_decorator(m))
+
+                    return new_item
+                if isinstance(item.parent, pytest.Class):
+                    if item.parent not in parents:
+                        new_klass = pytest.Class.from_parent(  # type: ignore[no-untyped-call]
+                            file_root, name=item.parent.name, obj=item.parent.obj
+                        )
+
+                        # You would expect to need to add item.parent.parent's markers to item.parent, but pytest.Class
+                        # doesn't know about its own markers until `.obj()` is called.
+                        for m in list(item.parent.iter_markers()):
+                            new_klass.add_marker(to_mark_decorator(m))
+
+                        parents[item.parent] = new_klass
+
+                    return JupyterNotebookTestFunction.from_function(parents[item.parent], item)
                 return None
 
             return reparent
@@ -105,13 +142,13 @@ class NotebookGrouper:
             if item.name.endswith("[]"):
                 item.name = item.name[:-2]
 
-            newParent = reparent(item)
+            reparented_item = reparent(item)
 
             # This is _should_ never happen
-            if newParent is None:
+            if reparented_item is None:
                 raise ValueError(f"Unable to determine new parent for {item!r}")
 
-            notebook_functions[i] = JupyterNotebookTestFunction.from_function(reparent(item), item)
+            notebook_functions[i] = reparented_item
 
         # Pytest seems to rely on some implicit ordering to correctly group together tests in the test report
         # Sorting by parent nodeid allows us to preserve parameterization ordering
