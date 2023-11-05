@@ -1,11 +1,18 @@
+import contextlib
+import functools
+import os
 import types
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import (
     Callable,
+    Dict,
     Generator,
     Generic,
     Iterable,
+    Iterator,
     List,
+    Literal,
     Optional,
     Protocol,
     Set,
@@ -18,7 +25,7 @@ from typing import (
 
 import pluggy
 import pytest
-from typing_extensions import TypeAlias, TypeGuard
+from typing_extensions import Self, TypeAlias, TypeGuard
 
 from .._file import JupyterNotebookFile
 from .._utils import partition
@@ -131,19 +138,96 @@ class FileDelayer(Generic[T_File]):
 
 
 class SetDefaultHookFunction(Protocol):
-    def __call__(self) -> Optional[Iterable[TestObject]]:
+    """The type of the pytest_iovis_set_default_function hook."""
+
+    def __call__(self, *, inherited: Tuple[TestObject, ...]) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()
 
 
+class NoPayload:
+    """A distinct type used to signify that a PathTrie Node has no payload."""
+
+
+@dataclass
+class Node(Generic[T]):
+    """A Node of a PathTrie that can store a generic payload."""
+
+    payload: Union[T, Type[NoPayload]] = NoPayload
+    children: Dict[str, Self] = field(default_factory=dict)
+
+
+class PathTrie(Generic[T]):
+    """A trie that accepts the parts (i.e `Path.parts`) of an absolute path, and stores some associated payload."""
+
+    def __init__(self, root_payload: T) -> None:
+        self.root: Node[T] = Node(payload=root_payload)
+
+    @staticmethod
+    def _normalize(p: Union[str, "os.PathLike[str]"]) -> Path:
+        """Normalize the path argument."""
+        return Path(p).resolve()
+
+    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> None:
+        """Insert a payload for a given path.
+
+        :param p: The path to insert. If `None`, will insert at root
+        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :param T payload: The payload to store
+        """
+        curr = self.root
+
+        for part in self._normalize(p).parts if p is not None else ():
+            curr = curr.children.setdefault(part, Node())
+
+        curr.payload = payload
+
+    def longest_common_prefix(self, p: Union[str, "os.PathLike[str]"]) -> T:
+        """Retrieve the payload of the longest matching prefix of the argument present in the trie.
+
+        This method is guaranteed to always return a result, since the root node always has a payload.
+
+        :param p: The path to find the longest common prefix of.
+        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :returns: The payload of the longest common prefix
+        :rtype: T
+        """
+        curr = self.root
+        result = self.root.payload
+        assert result is not NoPayload, "root node should always have a valid payload"
+
+        for part in self._normalize(p).parts:
+            if part not in curr.children:
+                break
+
+            curr = curr.children[part]
+
+            if curr.payload is not NoPayload:
+                result = curr.payload
+
+        return cast(T, result)
+
+
 class TestFunctionManager:
-    __DEFAULT_FUNCTIONS = pytest.StashKey[Tuple[TestObject, ...]]()
+    __DEFAULT_FUNCTION_RESOLVERS = pytest.StashKey[List[SetDefaultHookFunction]]()
+    __PATH_TRIE = pytest.StashKey[PathTrie[Tuple[TestObject, ...]]]()
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
+        """Register the `pytest_iovis_set_default_functions` hook."""
+
         class HookSpec:
             @pytest.hookspec(firstresult=True)
-            def pytest_iovis_set_default_functions(self) -> Optional[Iterable[TestObject]]:
+            def pytest_iovis_set_default_functions(
+                self, inherited: Tuple[TestObject, ...]
+            ) -> Optional[Iterable[TestObject]]:
                 """Set the default test functions for collected Jupyter Notebooks.
 
+                The defaults returned by this hook apply to all collected notebooks under the parent directory this is
+                called from.
+
+                This hook will only be called when found in `conftest.py`.
+
+                :param inherited: The test functions inherited from a higher scope
+                :type inherited: Tuple[TestObject, ...]
                 :return: Either:
                     * A iterable of test functions that will be used for all collected notebooks
                     * None, which is equivalent to this hook not having been called
@@ -160,11 +244,67 @@ class TestFunctionManager:
     def is_conftest(obj: object) -> TypeGuard[types.ModuleType]:
         return isinstance(obj, types.ModuleType) and Path(obj.__file__ or ".").name == "conftest.py"
 
-    @pytest.hookimpl(hookwrapper=True)
-    def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
+    @contextlib.contextmanager
+    def with_populated_trie(self, session: pytest.Session) -> Iterator[None]:
+        """Build a path trie that can be used to compute test functions for a scope.
+
+        The path trie is made available for the interior scope of the context manager.
+
+        :param pytest.Session session: The pytest session
+        """
+
         def call_hook_without(plugins: Iterable[object]) -> SetDefaultHookFunction:
             """Return the hook function that runs on all plugins except the supplied ones."""
             return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
+
+        def build_payloads(
+            confs: Iterable[types.ModuleType], default: Tuple[TestObject, ...]
+        ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
+            """Return an iterable of tuples suitable to be unpacked as arguments to PathTrie.insert.
+
+            Performs a pre-order traversal on conftest plugins based on their location in the filesystem tree to
+            accumulate the test functions specified by those conftests.
+
+            :param Iterable[types.ModuleType] confs: The conftest modules
+            :param Tuple[TestObject,...] default: The root payload
+            """
+
+            def parents_first(a: types.ModuleType, b: types.ModuleType) -> Literal[-1, 0, 1]:
+                """Compare two modules to check if one lies on an ancestor path of the other."""
+                a_path, b_path = (Path(a.__file__ or "").parent, Path(b.__file__ or "").parent)
+
+                if a_path in b_path.parents:  # a is an ancestor of b, so it should come first
+                    return -1
+                if b_path in a_path.parents:  # b is an ancestor of a, so it should come first
+                    return 1
+                return 0  # a and b have no ancestral relationship, so any order is fine
+
+            # Ensure the conftests are sorted such that any conftest higher in the tree appears first.
+            sorted_confs = sorted(confs, key=functools.cmp_to_key(parents_first), reverse=True)
+
+            def _build_payloads_impl(
+                prev: Optional[Path], curr_objs: Tuple[TestObject, ...]
+            ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
+                while sorted_confs:
+                    conftest = sorted_confs[-1]
+                    assert conftest.__file__
+                    conftest_dir = Path(conftest.__file__).parent
+
+                    if prev is not None and prev not in conftest_dir.parents:
+                        return
+
+                    sorted_confs.pop()
+                    conftest_hook = call_hook_without(all_plugins.difference({conftest}))
+                    result = conftest_hook(inherited=curr_objs)
+
+                    if result is None:
+                        continue
+
+                    conftest_funcs = tuple(result)
+                    yield (conftest_dir, conftest_funcs)
+                    yield from _build_payloads_impl(conftest_dir, conftest_funcs)
+
+            yield from _build_payloads_impl(None, (default))
 
         manager = session.config.pluginmanager
 
@@ -172,17 +312,39 @@ class TestFunctionManager:
         conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
 
         non_conftest_hooks = call_hook_without(conftest_plugins)
-        conftest_hooks = call_hook_without(non_conftest_plugins)
+        result = non_conftest_hooks(inherited=())
 
-        session.stash[self.__DEFAULT_FUNCTIONS] = tuple(
-            next((fs for fs in (conftest_hooks(), non_conftest_hooks()) if fs is not None), [])
-        )
+        global_test_functions = tuple(result or ())
+
+        path_trie = PathTrie(root_payload=global_test_functions)
+
+        for path, payload in build_payloads(conftest_plugins, default=global_test_functions):
+            path_trie.insert(path, payload)
+
+        session.stash[self.__PATH_TRIE] = path_trie
+
         yield
 
-        del session.stash[self.__DEFAULT_FUNCTIONS]
+        del session.stash[self.__PATH_TRIE]
 
-    def test_functions_for(self, session: pytest.Session) -> Tuple[TestObject, ...]:
-        return session.stash.get(self.__DEFAULT_FUNCTIONS, ())
+    def test_functions_for(self, session: pytest.Session, p: Union[str, "os.PathLike[str]"]) -> Iterable[TestObject]:
+        """Compute the test functions that are in-scope at a given path.
+
+        This function should be called within TestFunctionManager.with_populated_trie.
+
+
+        :param pytest.Session session: The pytest session
+        :param p: The path to find tests for.
+        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :returns: A list of tests
+        :rtype: Iterable[TestObject]
+        """
+        path_trie = session.stash.get(self.__PATH_TRIE, None)
+
+        if path_trie is None:
+            return []
+
+        return path_trie.longest_common_prefix(p)
 
 
 class JupyterNotebookDiscoverer:
@@ -236,11 +398,13 @@ class JupyterNotebookDiscoverer:
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
         """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
-            function_manager = parent.session.config.stash[self.__FUNCTION_MANAGER_KEY]
             return cast(
                 JupyterNotebookFile,
                 JupyterNotebookFile.from_parent(
-                    parent, path=file_path, test_functions=function_manager.test_functions_for(parent.session)
+                    parent,
+                    path=file_path,
+                    # Will be populated later
+                    test_functions=[],
                 ),
             )
         return None
@@ -272,6 +436,7 @@ class JupyterNotebookDiscoverer:
         report = result.get_result()
         session = collector.session
         delayer = self.get_delayer(session)
+        func_manager = session.config.stash[self.__FUNCTION_MANAGER_KEY]
 
         if not delayer.is_pytest_collecting(session):
             return
@@ -281,6 +446,11 @@ class JupyterNotebookDiscoverer:
 
         if delayer.is_last_make_collect_report_for_file(session):
             delayed_collectors = delayer.get_delayed(session)
+
+            # Compute test functions based on collector path
+            with func_manager.with_populated_trie(session):
+                for c in delayed_collectors:
+                    c.test_functions = list(func_manager.test_functions_for(session, c.path))
             # Remove collectors for notebooks that already have a user-defined test function
             delayed_collectors[:] = [i for i in delayed_collectors if i.path.resolve() not in seen_user_paths]
             # Queue the collectors for collection

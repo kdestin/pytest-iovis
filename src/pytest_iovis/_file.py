@@ -1,5 +1,5 @@
 import types
-from typing import TYPE_CHECKING, Callable, List, Optional, cast
+from typing import TYPE_CHECKING, Callable, List, Optional, Type, Union, cast
 
 import pytest
 from typing_extensions import Self
@@ -15,9 +15,11 @@ class JupyterNotebookFile(pytest.Module):
     parameterization)
     """
 
-    def __init__(self, *args: object, test_functions: List[Callable[..., object]], **kwargs: object) -> None:
+    def __init__(
+        self, *args: object, test_functions: List[Union[Type[object], Callable[..., object]]], **kwargs: object
+    ) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
-        self._test_functions = test_functions
+        self.test_functions = test_functions
         """The test functions to generate for the collected notebook."""
 
     def _getobj(self) -> types.ModuleType:
@@ -35,7 +37,7 @@ class JupyterNotebookFile(pytest.Module):
         """
         module = types.ModuleType(name="jupyter_notebook_collector")
 
-        for f in self._test_functions:
+        for f in self.test_functions:
             # Need to add test functions to the module since pytest tries to access them
             setattr(module, f.__name__, f)
 
