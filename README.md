@@ -22,7 +22,20 @@ notebooks/foo.ipynb::TestMetadata::test_kernelspec_in_allowlist PASSED          
 
 ## Features
 
-- TODO
+- Facilitates writing `pytest` test functions for Jupyter Notebooks
+  - Jupyter Notebooks are automatically discovered, and run "default" test functions. Default test functions are
+    user configurable.
+  - `pytest` test functions can be marked with `@pytest.mark.notebook` mark to override the default test function(s)
+    for a specific file.
+- "Notebook-centric" test report
+
+Miscellaneous features that help provide a _batteries-included_ experience:
+
+- A default test function that uses [papermill] to run collected notebooks. This feature is optional and can be enabled
+  by installing the `[papermill]` extra when installing `pytest-iovis`.
+- A `venv` fixture which activates a test-specific [virtual environment](https://docs.python.org/3/library/venv.html)
+  which has access to all packages from the host environment. Useful when running notebooks that target `ipykernel`
+  that may try to install packages.
 
 ## Installation
 
@@ -88,6 +101,7 @@ _Iovis_ is the singular [genitive case](https://en.wikipedia.org/wiki/Genitive_c
 Which is the Latin name of the Roman god Jupiter, from which the planet and [Jupyter Notebooks] take their namesake.
 
 [jupyter notebooks]: https://jupyter.org/
+[papermill]: https://github.com/nteract/papermill
 [pytest]: https://docs.pytest.org/en/latest/
 [pytest-notebook]: https://github.com/chrisjsewell/pytest-notebook
 [testbook]: https://github.com/nteract/testbook
