@@ -22,7 +22,6 @@ plugin as follows:
 import importlib
 
 from .discovery import JupyterNotebookDiscoverer
-from .grouping import NotebookGrouper
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
 
@@ -37,7 +36,6 @@ else:
 __all__ = [
     "IPythonMarkupPlugin",
     "JupyterNotebookDiscoverer",
-    "NotebookGrouper",
     "NotebookMarkerArg",
     "NotebookMarkerHandler",
     "PapermillTestRunner",

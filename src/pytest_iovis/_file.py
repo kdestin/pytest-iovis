@@ -1,11 +1,7 @@
 import types
-from typing import TYPE_CHECKING, Callable, List, Optional, Type, Union, cast
+from typing import Callable, List, Type, Union
 
 import pytest
-from typing_extensions import Self
-
-if TYPE_CHECKING:
-    from _pytest.nodes import Node
 
 
 class JupyterNotebookFile(pytest.Module):
@@ -45,31 +41,3 @@ class JupyterNotebookFile(pytest.Module):
         module.pytestmark = pytest.mark.notebook(self.path)  # type: ignore[attr-defined]
 
         return module
-
-
-class JupyterNotebookTestFunction(pytest.Function):
-    @classmethod
-    def from_function(cls, parent: Optional["Node"], other: pytest.Function) -> Self:
-        """Create a JupyterNotebookTestFunction as a copy of a pytest.Function.
-
-        :param pytest.Collector parent: The pytest.Collector to set as the parent.
-        :param pytest.Function other: The pytest.Function to copy fields from.
-        :return: A JupyterNotebookTestFunction
-        :rtype: JupyterNotebookTestFunction
-        """
-        item = cast(
-            Self,
-            cls.from_parent(  # type: ignore[no-untyped-call]
-                name=other.name,
-                parent=parent,
-                callobj=other.obj,
-                callspec=getattr(other, "callspec", None),
-                # Accessing private attribute, but parametrization breaks without it
-                fixtureinfo=other._fixtureinfo,
-                keywords=other.keywords,
-                originalname=other.originalname,
-            ),
-        )
-
-        item.stash = other.stash
-        return item

@@ -1,5 +1,6 @@
 import errno
 import os
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Union, cast
@@ -7,7 +8,6 @@ from typing import Callable, Dict, Iterable, List, NoReturn, Optional, Union, ca
 import pytest
 from typing_extensions import Self, TypeGuard
 
-from .._file import JupyterNotebookTestFunction
 from .._utils import error_message_at_mark_owner, make_mark_description
 
 
@@ -62,6 +62,8 @@ class NotebookMarkerHandler:
 
     FIXTURE_NAME = "notebook_path"
     """The name of the fixture that will be parametrized by this plugin"""
+
+    __PLACEHOLDER_NOTEBOOK_PARAMSET_ID = f"{uuid.uuid4()}{uuid.uuid4()}"
 
     def pytest_configure(self, config: pytest.Config) -> None:
         """Register the marker handled by this plugin."""
@@ -146,13 +148,12 @@ class NotebookMarkerHandler:
         except ValueError:
             return None
 
-    @pytest.hookimpl(trylast=True)
     def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
-        """Use the strigified argument the user provided as the parametrization ID."""
+        """Return a placeholder ID when parametrizing on the notebook path fixture that can be later removed."""
         if not (isinstance(val, NotebookMarkerArg) and argname == NotebookMarkerHandler.FIXTURE_NAME):
             return None
 
-        return f"{(val.original_path)}"
+        return self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID
 
     def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
         """Parametrize the `notebook_path` fixture to generate a test function for each notebook marker."""
@@ -184,9 +185,14 @@ class NotebookMarkerHandler:
         # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
         metafunc.parametrize(self.FIXTURE_NAME, args, indirect=True)
 
+        # Remove our placeholder ID from the ID list
+        for c in metafunc._calls:
+            c._idlist[:] = [s for s in c._idlist if not s.startswith(self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID)]
+
     def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
-        """Replace `@pytest.mark.notebook` marked `pytest.Function`s with JupyterNoteTestFunction."""
-        # marked pytest.Function -> JupyterNotebookTestFunction
-        for i, item in enumerate(items):
-            if self.is_marked_function(item):
-                items[i] = JupyterNotebookTestFunction.from_function(item.parent, item)
+        """Remove empty parametrization brackets."""
+        for item in items:
+            # Remove empty parameterization brackets
+            if self.is_marked_function(item) and item.name.endswith("[]"):
+                item.name = item.name[:-2]
+                item._nodeid = item._nodeid[:-2]

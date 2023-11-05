@@ -5,13 +5,6 @@ from typing import Callable, Optional, Union
 import pytest
 
 
-@pytest.fixture()
-def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
-    """Return the testdir fixture, but ensure that the grouping subplugin is disabled and doesn't affect output."""
-    monkeypatch.setenv("PYTEST_ADDOPTS", "-p no:iovis.grouping")
-    return testdir
-
-
 def test_notebook_marker_documentation(testdir: pytest.Testdir) -> None:
     """Check that `pytest --markers` displays a help message for @pytest.mark.notebook."""
     res = testdir.runpytest("--markers")
@@ -137,9 +130,7 @@ def test_single_marker_applied(testdir: pytest.Testdir) -> None:
     num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
 
     assert num_collected_tests == 1
-    res.stdout.fnmatch_lines(
-        ["<Module tests/test.py>", f"  <JupyterNotebookTestFunction test_marker[[]{notebook_path}]>", ""]
-    )
+    res.stdout.fnmatch_lines(["<Module tests/test.py>", "  <Function test_marker>", ""])
 
 
 def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
@@ -170,9 +161,9 @@ def test_multiple_unique_markers_applied(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(
         [
             "<Module tests/test.py>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[1]}]>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[2]}]>",
+            "  <Function test_marker>",
+            "  <Function test_marker>",
+            "  <Function test_marker>",
             "",
         ]
     )
@@ -212,9 +203,9 @@ def test_duplicated_markers_applied(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(
         [
             "<Module tests/test.py>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[1]}]>",
-            f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[2]}]>",
+            "  <Function test_marker>",
+            "  <Function test_marker>",
+            "  <Function test_marker>",
             "",
         ]
     )
@@ -251,7 +242,7 @@ class TestDefaultFunctionsRemoved:
         res.stdout.fnmatch_lines(
             [
                 "<Module tests/test.py>",
-                f"  <JupyterNotebookTestFunction test_marker[[]{dummy_notebook}]>",
+                "  <Function test_marker>",
                 "",
             ],
             consecutive=True,
@@ -290,11 +281,11 @@ class TestDefaultFunctionsRemoved:
         res.stdout.fnmatch_lines(
             [
                 "<Module tests/test.py>",
-                f"  <JupyterNotebookTestFunction test_marker[[]{notebook_paths[0]}]>",
+                "  <Function test_marker>",
                 "<JupyterNotebookFile notebooks/test1.ipynb>",
-                f"  <JupyterNotebookTestFunction test_notebook_runs[[]{notebook_paths[1]}]>",
+                "  <Function test_notebook_runs>",
                 "<JupyterNotebookFile notebooks/test2.ipynb>",
-                f"  <JupyterNotebookTestFunction test_notebook_runs[[]{notebook_paths[2]}]>",
+                "  <Function test_notebook_runs>",
                 "",
             ],
             consecutive=True,
@@ -341,7 +332,7 @@ class TestDefaultFunctionsRemoved:
         res.stdout.fnmatch_lines(
             [
                 "<Module tests/test.py>",
-                f"  <JupyterNotebookTestFunction test_marker[[]{dummy_notebook}]>",
+                "  <Function test_marker>",
                 "",
             ],
             consecutive=True,
