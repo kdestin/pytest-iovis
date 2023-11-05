@@ -1,5 +1,5 @@
 import contextlib
-import functools
+import heapq
 import os
 import types
 from dataclasses import dataclass, field
@@ -12,7 +12,7 @@ from typing import (
     Iterable,
     Iterator,
     List,
-    Literal,
+    NamedTuple,
     Optional,
     Protocol,
     Set,
@@ -137,10 +137,24 @@ class FileDelayer(Generic[T_File]):
         session.stash[self._REMAINING_CALLS_KEY] += sum(isinstance(r, pytest.File) for r in report.result)
 
 
+class SetDefaultForFileHookFunction(Protocol):
+    def __call__(
+        self,
+        *,
+        inherited: Tuple[TestObject, ...],
+    ) -> Iterable[TestObject]:
+        raise NotImplementedError()
+
+
 class SetDefaultHookFunction(Protocol):
     """The type of the pytest_iovis_set_default_function hook."""
 
-    def __call__(self, *, inherited: Tuple[TestObject, ...]) -> Optional[Iterable[TestObject]]:
+    def __call__(
+        self,
+        *,
+        inherited: Tuple[TestObject, ...],
+        for_notebook: Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]],
+    ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()
 
 
@@ -217,7 +231,11 @@ class TestFunctionManager:
         class HookSpec:
             @pytest.hookspec(firstresult=True)
             def pytest_iovis_set_default_functions(
-                self, inherited: Tuple[TestObject, ...]
+                self,
+                inherited: Tuple[TestObject, ...],
+                for_notebook: Callable[
+                    [Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]
+                ],
             ) -> Optional[Iterable[TestObject]]:
                 """Set the default test functions for collected Jupyter Notebooks.
 
@@ -257,6 +275,32 @@ class TestFunctionManager:
             """Return the hook function that runs on all plugins except the supplied ones."""
             return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
 
+        class ScopedHook(NamedTuple):
+            path: Path
+            hook: SetDefaultHookFunction
+
+        def make_register_fn(
+            confdir: Path, scoped_confs_heap: List[ScopedHook], empty_hook_caller: pluggy.HookCaller
+        ) -> Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]]:
+            def for_notebook(path: Union[str, "os.PathLike[str]"]) -> Callable[[SetDefaultForFileHookFunction], None]:
+                pathlib_path = Path(path).resolve()
+                assert confdir in pathlib_path.parents
+                assert pathlib_path.is_file()
+
+                def decorator(f: SetDefaultForFileHookFunction) -> None:
+                    def pytest_iovis_set_default_functions(
+                        inherited: Tuple[TestObject, ...], for_notebook: object  # noqa: ARG001
+                    ) -> Iterable[TestObject]:
+                        return cast(Iterable[TestObject], empty_hook_caller.call_extra([f], {"inherited": inherited}))
+
+                    heapq.heappush(
+                        scoped_confs_heap, ScopedHook(path=pathlib_path, hook=pytest_iovis_set_default_functions)
+                    )
+
+                return decorator
+
+            return for_notebook
+
         def build_payloads(
             confs: Iterable[types.ModuleType], default: Tuple[TestObject, ...]
         ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
@@ -268,51 +312,51 @@ class TestFunctionManager:
             :param Iterable[types.ModuleType] confs: The conftest modules
             :param Tuple[TestObject,...] default: The root payload
             """
+            scoped_confs = [
+                ScopedHook(
+                    path=Path(conftest.__file__).parent, hook=call_hook_without(all_plugins.difference({conftest}))
+                )
+                for conftest in confs
+                if conftest.__file__
+            ]
 
-            def parents_first(a: types.ModuleType, b: types.ModuleType) -> Literal[-1, 0, 1]:
-                """Compare two modules to check if one lies on an ancestor path of the other."""
-                a_path, b_path = (Path(a.__file__ or "").parent, Path(b.__file__ or "").parent)
-
-                if a_path in b_path.parents:  # a is an ancestor of b, so it should come first
-                    return -1
-                if b_path in a_path.parents:  # b is an ancestor of a, so it should come first
-                    return 1
-                return 0  # a and b have no ancestral relationship, so any order is fine
-
-            # Ensure the conftests are sorted such that any conftest higher in the tree appears first.
-            sorted_confs = sorted(confs, key=functools.cmp_to_key(parents_first), reverse=True)
+            # Ensure that scoped hooks are ordered as if we did a pre-order traversal (which happens with pathlib's
+            # default comparator).
+            heapq.heapify(scoped_confs)
 
             def _build_payloads_impl(
                 prev: Optional[Path], curr_objs: Tuple[TestObject, ...]
             ) -> Iterable[Tuple[Path, Tuple[TestObject, ...]]]:
-                while sorted_confs:
-                    conftest = sorted_confs[-1]
-                    assert conftest.__file__
-                    conftest_dir = Path(conftest.__file__).parent
+                while scoped_confs:
+                    root = scoped_confs[0]
 
-                    if prev is not None and prev not in conftest_dir.parents:
+                    if prev is not None and prev not in root.path.parents:
                         return
 
-                    sorted_confs.pop()
-                    conftest_hook = call_hook_without(all_plugins.difference({conftest}))
-                    result = conftest_hook(inherited=curr_objs)
+                    heapq.heappop(scoped_confs)
+                    result = root.hook(
+                        inherited=curr_objs, for_notebook=make_register_fn(root.path, scoped_confs, empty_hook_caller)
+                    )
 
                     if result is None:
                         continue
 
-                    conftest_funcs = tuple(result)
-                    yield (conftest_dir, conftest_funcs)
-                    yield from _build_payloads_impl(conftest_dir, conftest_funcs)
+                    funcs = tuple(result)
+                    yield (root.path, funcs)
+                    yield from _build_payloads_impl(root.path, funcs)
 
             yield from _build_payloads_impl(None, (default))
 
         manager = session.config.pluginmanager
 
         all_plugins = manager.get_plugins()
+        empty_hook_caller: pluggy.HookCaller = manager.subset_hook_caller(
+            "pytest_iovis_set_default_functions", all_plugins
+        )
         conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
 
         non_conftest_hooks = call_hook_without(conftest_plugins)
-        result = non_conftest_hooks(inherited=())
+        result = non_conftest_hooks(inherited=(), for_notebook=lambda _: lambda _: None)
 
         global_test_functions = tuple(result or ())
 
