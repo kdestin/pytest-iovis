@@ -306,16 +306,14 @@ class TestDefaultFunctionsRemoved:
 
         testdir.makeconftest(
             """
-            from pytest_iovis import register_default_test_functions
-
             def test_notebook_1(notebook_path):
                 pass
 
             def test_notebook_2(notebook_path):
                 pass
 
-            def pytest_configure(config):
-                register_default_test_functions(test_notebook_1, test_notebook_2, config=config)
+            def pytest_iovis_set_default_functions():
+                return (test_notebook_1, test_notebook_2)
             """
         )
 

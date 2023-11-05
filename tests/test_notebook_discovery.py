@@ -27,12 +27,10 @@ class TestOverrideDefaultTestFunctions:
         """
         conftest = "\n".join(
             [
-                "from pytest_iovis import register_default_test_functions",
-                "",
                 *[inspect.getsource(f).lstrip() for f in funcs],
                 "",
-                "def pytest_configure(config):",
-                f"   register_default_test_functions({','.join([*(f.__name__ for f in funcs), ''])}config=config)",
+                "def pytest_iovis_set_default_functions():",
+                f"   return ({','.join([*(f.__name__ for f in funcs), ''])})",
             ]
         )
 

@@ -1,11 +1,10 @@
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
 
 import papermill as pm  # type: ignore[import-untyped]
 import pytest
 from nbformat import NotebookNode
 
-from .discovery import JupyterNotebookDiscoverer, register_default_test_functions
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerHandler
 
@@ -67,10 +66,8 @@ class PapermillTestRunner:
 
         return []
 
-    @pytest.hookimpl(trylast=True)
-    def pytest_configure(self, config: pytest.Config) -> None:
-        if JupyterNotebookDiscoverer.test_functions(config) is None:
-            register_default_test_functions(test_notebook_runs, config=config)
+    def pytest_iovis_set_default_functions(self) -> Iterable[Callable[..., object]]:
+        yield test_notebook_runs
 
     def pytest_exception_interact(
         self,

@@ -1,5 +1,20 @@
+import types
 from pathlib import Path
-from typing import Callable, Generator, Generic, Iterable, List, Optional, Set, Type, TypeVar, Union, cast
+from typing import (
+    Callable,
+    Generator,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Protocol,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+)
 
 import pluggy
 import pytest
@@ -12,10 +27,9 @@ from .notebook_marker import NotebookMarkerHandler
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
 T_File = TypeVar("T_File", bound=pytest.File)
+T = TypeVar("T")
 
-
-def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
-    """Do nothing."""
+TestObject = Union[Type[object], T_OpaqueCallable]
 
 
 class FileDelayer(Generic[T_File]):
@@ -116,6 +130,61 @@ class FileDelayer(Generic[T_File]):
         session.stash[self._REMAINING_CALLS_KEY] += sum(isinstance(r, pytest.File) for r in report.result)
 
 
+class SetDefaultHookFunction(Protocol):
+    def __call__(self) -> Optional[Iterable[TestObject]]:
+        raise NotImplementedError()
+
+
+class TestFunctionManager:
+    __DEFAULT_FUNCTIONS = pytest.StashKey[Tuple[TestObject, ...]]()
+
+    def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
+        class HookSpec:
+            @pytest.hookspec(firstresult=True)
+            def pytest_iovis_set_default_functions(self) -> Optional[Iterable[TestObject]]:
+                """Set the default test functions for collected Jupyter Notebooks.
+
+                :return: Either:
+                    * A iterable of test functions that will be used for all collected notebooks
+                    * None, which is equivalent to this hook not having been called
+                :rtype: Optional[Iterable[TestObject]]
+                """
+                raise NotImplementedError()
+
+        # Useless assignment so that mypy ensures the hook implements protocol
+        _: SetDefaultHookFunction = HookSpec().pytest_iovis_set_default_functions
+
+        pluginmanager.add_hookspecs(HookSpec)
+
+    @staticmethod
+    def is_conftest(obj: object) -> TypeGuard[types.ModuleType]:
+        return isinstance(obj, types.ModuleType) and Path(obj.__file__ or ".").name == "conftest.py"
+
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_collection(self, session: pytest.Session) -> Iterable[None]:
+        def call_hook_without(plugins: Iterable[object]) -> SetDefaultHookFunction:
+            """Return the hook function that runs on all plugins except the supplied ones."""
+            return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
+
+        manager = session.config.pluginmanager
+
+        all_plugins = manager.get_plugins()
+        conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
+
+        non_conftest_hooks = call_hook_without(conftest_plugins)
+        conftest_hooks = call_hook_without(non_conftest_plugins)
+
+        session.stash[self.__DEFAULT_FUNCTIONS] = tuple(
+            next((fs for fs in (conftest_hooks(), non_conftest_hooks()) if fs is not None), [])
+        )
+        yield
+
+        del session.stash[self.__DEFAULT_FUNCTIONS]
+
+    def test_functions_for(self, session: pytest.Session) -> Tuple[TestObject, ...]:
+        return session.stash.get(self.__DEFAULT_FUNCTIONS, ())
+
+
 class JupyterNotebookDiscoverer:
     """A pytest plugin that enables auto-discovery of Jupyter notebooks as pytest tests.
 
@@ -137,42 +206,17 @@ class JupyterNotebookDiscoverer:
 
     PLUGIN_NAME = "notebook_discovery"
     """A user facing name that describes this plugin."""
-    TEST_FUNCTION_KEY = pytest.StashKey[List[T_OpaqueCallable]]()
-    """A stash key that stores callables used as test functions for collected notebooks. Meant to be used on config."""
     __USER_DEFINED_PATHS_KEY = pytest.StashKey[Set[Path]]()
     """A stash key that stores notebook Paths with user-defined test functions. Meant to be used on a session."""
     __DELAYER_NAME = "jupyter_notebook_file_delayer"
+    __FUNCTION_MANAGER_KEY = pytest.StashKey[TestFunctionManager]()
 
-    @classmethod
-    def register_default_test_functions(cls, *funcs: T_OpaqueCallable, config: pytest.Config) -> None:
-        """Register test functions to be used for collected notebooks.
+    @pytest.hookimpl(trylast=True)
+    def pytest_iovis_set_default_functions(self) -> Iterable[T_OpaqueCallable]:
+        def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
+            """Do nothing."""
 
-        May be called multiple times, which adds to previously registered functions.
-
-        :param Callable *funcs: Callables to use as test functions. Must have a __name__ parameter.
-        :keyword pytest.Config config: The session's config.
-        """
-        test_functions = config.stash.setdefault(cls.TEST_FUNCTION_KEY, cast(List[T_OpaqueCallable], []))
-        for f in funcs:
-            if not callable(f):
-                raise ValueError(f"{f!r} is not callable")
-            if getattr(f, "__name__", None) is None:
-                raise ValueError(f"{f!r} does not have a __name__")
-
-            test_functions.append(f)
-
-    @classmethod
-    def test_functions(cls, config: pytest.Config) -> Optional[List[T_OpaqueCallable]]:
-        """Get test functions registered by register_default_test_functions.
-
-        :param pytest.Config config: The session's pytest config
-        :return: Returns
-          * None if register_default_test_functions has never been called.
-          * The list of registered test functions
-        :rtype: Optional[List[T_OpaqueCallable]]
-        """
-        funcs = config.stash.get(cls.TEST_FUNCTION_KEY, None)
-        return funcs and funcs.copy()
+        yield test_nothing
 
     def get_delayer(self, session: pytest.Session) -> FileDelayer[JupyterNotebookFile]:
         """Retrieve the FileDelayer plugin used to delay JupyterNotebookFile collectors."""
@@ -185,16 +229,18 @@ class JupyterNotebookDiscoverer:
         """Register a plugin that delays the collection of JupyterNotebookFiles until after every other file."""
         config.pluginmanager.register(FileDelayer(JupyterNotebookFile), name=self.__DELAYER_NAME)
 
+        function_manager = TestFunctionManager()
+        config.pluginmanager.register(function_manager)
+        config.stash[self.__FUNCTION_MANAGER_KEY] = function_manager
+
     def pytest_collect_file(self, file_path: Path, parent: pytest.Collector) -> Optional[pytest.Collector]:
         """Make pytest.Collectors for Jupyter Notebooks."""
         if file_path.suffix in [".ipynb"]:
-            test_functions = self.test_functions(parent.config)
+            function_manager = parent.session.config.stash[self.__FUNCTION_MANAGER_KEY]
             return cast(
                 JupyterNotebookFile,
                 JupyterNotebookFile.from_parent(
-                    parent,
-                    path=file_path,
-                    test_functions=test_functions if test_functions is not None else [test_nothing],
+                    parent, path=file_path, test_functions=function_manager.test_functions_for(parent.session)
                 ),
             )
         return None
@@ -239,6 +285,3 @@ class JupyterNotebookDiscoverer:
             delayed_collectors[:] = [i for i in delayed_collectors if i.path.resolve() not in seen_user_paths]
             # Queue the collectors for collection
             delayer.add_delayed(report, delayed_collectors)
-
-
-register_default_test_functions = JupyterNotebookDiscoverer.register_default_test_functions

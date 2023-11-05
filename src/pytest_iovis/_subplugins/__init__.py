@@ -21,7 +21,7 @@ plugin as follows:
 """
 import importlib
 
-from .discovery import JupyterNotebookDiscoverer, register_default_test_functions
+from .discovery import JupyterNotebookDiscoverer
 from .grouping import NotebookGrouper
 from .markup import IPythonMarkupPlugin
 from .notebook_marker import NotebookMarkerArg, NotebookMarkerHandler
@@ -41,5 +41,4 @@ __all__ = [
     "NotebookMarkerArg",
     "NotebookMarkerHandler",
     "PapermillTestRunner",
-    "register_default_test_functions",
 ]
