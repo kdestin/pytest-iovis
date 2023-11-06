@@ -1,7 +1,7 @@
 import inspect
 import os
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Dict, Optional, Union
 
 import pytest
 
@@ -31,6 +31,7 @@ class TestOverrideDefaultTestFunctions:
         testdir: pytest.Testdir,
         *funcs: Callable[..., object],
         inherit: bool = False,
+        for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
         directory: Optional[Union[str, "os.PathLike[str]"]] = None,
     ) -> None:
         """Override the test functions used when collecting noteboks.
@@ -40,16 +41,23 @@ class TestOverrideDefaultTestFunctions:
                                  __name__
         :keyword inherit: Whether to inherit test functions from the parent scope
         :type inherit: bool
+        :keyword for_notebook: Map of files to hook functions, used to configure test functions for that file
+        :type for_notebook: Optional[Dict[str, Callable[..., object]]]
         :keyword directory: The directory to write the conftest.py to
         :type directory: Optional[Union[str, "os.PathLike[str]"]]
         """
+        if for_notebooks is None:
+            for_notebooks = {}
+
         conftest = "\n".join(
             [
                 *[inspect.getsource(f).lstrip() for f in funcs],
                 "",
-                "def pytest_iovis_set_default_functions(inherited):",
+                *[inspect.getsource(f).lstrip() for f in for_notebooks.values()],
+                "def pytest_iovis_set_default_functions(inherited, for_notebook):",
                 f"   if {inherit!r}:",
                 "      yield from inherited",
+                *[f"   for_notebook({k!r})({v.__name__})" for k, v in for_notebooks.items()],
                 f"   yield from ({','.join([*(f.__name__ for f in funcs), ''])})",
             ]
         )
@@ -368,6 +376,200 @@ class TestOverrideDefaultTestFunctions:
                 "foo/bar/test.ipynb::test_function1 PASSED*",
                 "foo/bar/test.ipynb::test_function2 PASSED*",
                 "grault/garply/waldo/fred/test.ipynb::test_nothing PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_file_hook(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+    ) -> None:
+        """Validate that you can call a 'file hook' to configure test functions for a single file."""
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        self.override_test_functions(testdir, inherit=True, for_notebooks={"foo/bar/test.ipynb": file_hook})
+
+        dummy_notebook_factory("test.ipynb")
+        dummy_notebook_factory("foo/test.ipynb")
+        dummy_notebook_factory("foo/bar/test.ipynb")
+        dummy_notebook_factory("baz/test.ipynb")
+        dummy_notebook_factory("grault/garply/waldo/fred/test.ipynb")
+
+        res = testdir.runpytest("-v")
+
+        res.assert_outcomes(passed=5)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "test.ipynb::test_nothing PASSED*",
+                "baz/test.ipynb::test_nothing PASSED*",
+                "foo/test.ipynb::test_nothing PASSED*",
+                "foo/bar/test.ipynb::test_function PASSED*",
+                "grault/garply/waldo/fred/test.ipynb::test_nothing PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_most_specific_file_hook_wins(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+    ) -> None:
+        """Validate that the file hook registered in the closest conftest wins if there's multiple hooks for a file."""
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        def file_hook1():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function1(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function1
+
+        def file_hook2():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function2(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function2
+
+        def file_hook3():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function3(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function3
+
+        self.override_test_functions(testdir, for_notebooks={"grault/garply/waldo/test.ipynb": file_hook})
+        self.override_test_functions(testdir, directory="grault", for_notebooks={"garply/waldo/test.ipynb": file_hook1})
+        self.override_test_functions(testdir, directory="grault/garply", for_notebooks={"waldo/test.ipynb": file_hook2})
+        self.override_test_functions(testdir, directory="grault/garply/waldo", for_notebooks={"test.ipynb": file_hook3})
+
+        dummy_notebook_factory("grault/garply/waldo/test.ipynb")
+
+        res = testdir.runpytest("-v")
+
+        res.assert_outcomes(passed=1)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "grault/garply/waldo/test.ipynb::test_function3 PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_file_hook_inherits_from_appropriate_scope(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+    ) -> None:
+        """Validate that a file hook is passed the correct inherited."""
+
+        def test_function1(notebook_path: object) -> None:  # noqa: ARG001
+            pass
+
+        def test_function2(notebook_path: object) -> None:  # noqa: ARG001
+            pass
+
+        def test_function3(notebook_path: object) -> None:  # noqa: ARG001
+            pass
+
+        def test_function4(notebook_path: object) -> None:  # noqa: ARG001
+            pass
+
+        def file_hook(inherited):  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN202
+            def test_function5(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield from inherited
+            yield test_function5
+
+        dummy_notebook_factory("foo/bar/test.ipynb")
+
+        self.override_test_functions(
+            testdir,
+            test_function1,
+            test_function2,
+            for_notebooks={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
+        )
+
+        # Override test functions one directory down
+        self.override_test_functions(testdir, test_function3, test_function4, directory="foo/")
+
+        res = testdir.runpytest("-v")
+
+        res.assert_outcomes(passed=3)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "foo/bar/test.ipynb::test_function3 PASSED*",
+                "foo/bar/test.ipynb::test_function4 PASSED*",
+                "foo/bar/test.ipynb::test_function5 PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_file_hooks_for_multiple_files(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+    ) -> None:
+        """Validate that multiple file hooks can be used to configure multiple files."""
+
+        def test_function1(notebook_path: object) -> None:  # noqa: ARG001
+            pass
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            return []
+
+        def file_hook1():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function2(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function2
+
+        def file_hook2(inherited):  # type: ignore[no-untyped-def]  # noqa: ANN202,ANN001
+            def test_function3(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield from inherited
+            yield test_function3
+
+        dummy_notebook_factory("test.ipynb")
+        dummy_notebook_factory("foo/bar/test.ipynb")
+        dummy_notebook_factory("quux/test.ipynb")
+
+        self.override_test_functions(
+            testdir,
+            test_function1,
+            for_notebooks={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
+        )
+
+        # Override test functions one directory down
+        self.override_test_functions(
+            testdir, test_function1, for_notebooks={"test.ipynb": file_hook, "foo/bar/test.ipynb": file_hook1}
+        )
+        self.override_test_functions(testdir, inherit=True, directory="quux", for_notebooks={"test.ipynb": file_hook2})
+        res = testdir.runpytest("-v")
+
+        res.assert_outcomes(passed=3)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "foo/bar/test.ipynb::test_function2 PASSED*",
+                "quux/test.ipynb::test_function1 PASSED*",
+                "quux/test.ipynb::test_function3 PASSED*",
                 "",
             ],
             consecutive=True,
