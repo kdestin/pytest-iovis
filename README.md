@@ -22,17 +22,13 @@ notebooks/foo.ipynb::TestMetadata::test_kernelspec_in_allowlist PASSED          
 
 ## Features
 
-- Facilitates writing `pytest` test functions for Jupyter Notebooks
-  - Jupyter Notebooks are automatically discovered, and run "default" test functions. Default test functions are
-    user configurable.
-  - `pytest` test functions can be marked with `@pytest.mark.notebook` mark to override the default test function(s)
-    for a specific file.
-- "Notebook-centric" test report
+- Jupyter Notebooks are automatically discovered and run test functions that are user-configurable with directory
+  specific `conftest.py` files.
 
 Miscellaneous features that help provide a _batteries-included_ experience:
 
-- A default test function that uses [papermill] to run collected notebooks. This feature is optional and can be enabled
-  by installing the `[papermill]` extra when installing `pytest-iovis`.
+- A plugin provided default test function that uses [papermill] to run collected notebooks. This feature is optional
+  and can be enabled by installing the `[papermill]` extra when installing `pytest-iovis`.
 - A `venv` fixture which activates a test-specific [virtual environment](https://docs.python.org/3/library/venv.html)
   which has access to all packages from the host environment. Useful when running notebooks that target `ipykernel`
   that may try to install packages.
@@ -85,11 +81,14 @@ detailed description.
           yield tb_obj
 
 
-  @pytest.mark.notebook("path/to/notebook.ipynb")
   def test_notebook(tb) -> None:
       func = tb.get("func")
 
       assert func(1, 2) == 3
+
+
+  def pytest_iovis_set_default_functions():
+      yield test_notebook
   ```
 
 - **[pytest-notebook]** plugin uses approval/snapshot testing to guard against regressions in notebook output.
