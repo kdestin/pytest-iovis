@@ -68,7 +68,7 @@ class TestOverrideDefaultTestFunctions:
             testdir.makepyfile(**{f"{Path(directory, 'conftest')}": conftest})
 
     def test_can_override_with_nothing(self, testdir: pytest.Testdir) -> None:
-        """Validate calling the register function with no test functions disables the default on."""
+        """Validate calling the register function with no test functions disables the plugin provided default."""
         testdir.makefile(".ipynb", "")
 
         self.override_test_functions(testdir, *[])
@@ -78,7 +78,7 @@ class TestOverrideDefaultTestFunctions:
         res.assert_outcomes()  # Assert that nothing is run
 
     def test_can_replace_with_one(self, testdir: pytest.Testdir) -> None:
-        """Validate that a user can replace the default test function with their own."""
+        """Validate that a user can replace the plugin provided default with their own."""
         testdir.makefile(".ipynb", "")
 
         def test_function(notebook_path: object) -> None:  # noqa: ARG001
@@ -92,7 +92,7 @@ class TestOverrideDefaultTestFunctions:
         res.stdout.fnmatch_lines("test_can_replace_with_one.ipynb::test_function*")
 
     def test_can_override_with_many(self, testdir: pytest.Testdir) -> None:
-        """Validate that a user can replace the default test function with many others."""
+        """Validate that a user can replace the plugin provided default with many others."""
 
         def test_function1(notebook_path: object) -> None:  # noqa: ARG001
             pass
