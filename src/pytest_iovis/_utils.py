@@ -6,6 +6,8 @@ from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Tuple
 
 from typing_extensions import Self, TypeGuard
 
+from ._types import PathType
+
 T = TypeVar("T")
 T2 = TypeVar("T2")
 
@@ -65,7 +67,7 @@ class PathTrie(Generic[T]):
         self.root: PathTrie.Node[T] = PathTrie.Node(payload=root_payload)
 
     @staticmethod
-    def _normalize(p: Union[str, "os.PathLike[str]"]) -> Path:
+    def _normalize(p: PathType) -> Path:
         """Normalize the path argument."""
         return Path(p).resolve()
 
@@ -83,11 +85,10 @@ class PathTrie(Generic[T]):
 
         return curr.payload is not PathTrie.NoPayload
 
-    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> "PathTrie.InsertType":
+    def insert(self, p: Optional[PathType], payload: T) -> "PathTrie.InsertType":
         """Insert a payload for a given path.
 
-        :param p: The path to insert. If `None`, will insert at root
-        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :param Optional[PathType] p: The path to insert. If `None`, will insert at root
         :param T payload: The payload to store
         :returns: Whether or not the inserted path is the prefix of another path in the trie.
         :rtype: InsertType
@@ -103,13 +104,12 @@ class PathTrie(Generic[T]):
         curr.payload = payload
         return insert_type
 
-    def longest_common_prefix(self, p: Union[str, "os.PathLike[str]"]) -> T:
+    def longest_common_prefix(self, p: PathType) -> T:
         """Retrieve the payload of the longest matching prefix of the argument present in the trie.
 
         This method is guaranteed to always return a result, since the root node always has a payload.
 
-        :param p: The path to find the longest common prefix of.
-        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :param Optional[PathType] p: The path to find the longest common prefix of.
         :returns: The payload of the longest common prefix
         :rtype: T
         """

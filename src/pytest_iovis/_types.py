@@ -1,3 +1,4 @@
+import os
 from typing import Any, Protocol, Type, Union
 
 from typing_extensions import TypeAlias
@@ -20,3 +21,6 @@ class NamedCallable(Protocol):
 
 TestObject: TypeAlias = Union[NamedCallable, Type[object]]
 """A object that pytest can collect as a test."""
+
+
+PathType: TypeAlias = Union[str, "os.PathLike[str]"]

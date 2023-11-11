@@ -1,4 +1,3 @@
-import os
 import types
 import uuid
 from dataclasses import dataclass
@@ -9,7 +8,7 @@ import pytest
 from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._types import TestObject
+from .._types import PathType, TestObject
 from .._utils import PathTrie, partition
 
 
@@ -42,7 +41,7 @@ class SetDefaultHookFunction(Protocol):
         self,
         *,
         inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]],
+        for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()
 
@@ -96,9 +95,7 @@ class ScopedFunctionHandler:
             def pytest_iovis_set_default_functions(
                 self,
                 inherited: Tuple[TestObject, ...],
-                for_notebook: Callable[
-                    [Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]
-                ],
+                for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
             ) -> Optional[Iterable[TestObject]]:
                 """Set the default test functions for collected Jupyter Notebooks.
 
@@ -160,8 +157,8 @@ class ScopedFunctionHandler:
 
         def make_register_fn(
             confdir: Path,
-        ) -> Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]]:
-            def for_notebook(path: Union[str, "os.PathLike[str]"]) -> Callable[[SetDefaultForFileHookFunction], None]:
+        ) -> Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]]:
+            def for_notebook(path: PathType) -> Callable[[SetDefaultForFileHookFunction], None]:
                 pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
                 assert confdir in pathlib_path.parents
                 assert pathlib_path.is_file(), pathlib_path
@@ -204,15 +201,14 @@ class ScopedFunctionHandler:
         if hook is not None:
             self.add_scoped_hook(manager, scope=path, hook=hook)
 
-    def test_functions_for(self, p: Union[str, "os.PathLike[str]"]) -> Iterable[TestObject]:
+    def test_functions_for(self, p: PathType) -> Iterable[TestObject]:
         """Compute the test functions that are in-scope at a given path.
 
         This function should be called within TestFunctionManager.with_populated_trie.
 
 
         :param pytest.Session session: The pytest session
-        :param p: The path to find tests for.
-        :type p: Optional[Union[str, "os.PathLike[str]"]]
+        :param PathType p: The path to find tests for.
         :returns: A list of tests
         :rtype: Iterable[TestObject]
         """

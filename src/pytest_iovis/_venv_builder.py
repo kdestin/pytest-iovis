@@ -11,8 +11,6 @@ import venv
 from pathlib import Path
 from typing import Iterator, Optional, Union, final
 
-PathType = Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
-
 
 class ThinEnvBuilder(venv.EnvBuilder):
     """An EnvBuilder that creates "thin virtual environments".
@@ -58,12 +56,16 @@ class ThinEnvBuilder(venv.EnvBuilder):
             prompt=prompt,
         )
 
-    def ensure_directories(self, env_dir: PathType) -> types.SimpleNamespace:
+    def ensure_directories(
+        self, env_dir: Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+    ) -> types.SimpleNamespace:
         """Shim the ensure_directories super method to temporarily save the environment context."""
         self._context = super().ensure_directories(env_dir)
         return self._context
 
-    def create(self, env_dir: PathType) -> types.SimpleNamespace:  # type: ignore[override]
+    def create(  # type: ignore[override]
+        self, env_dir: Union[str, bytes, "os.PathLike[str]", "os.PathLike[bytes]"]
+    ) -> types.SimpleNamespace:
         super().create(env_dir)
         context = self._context
         del self._context
