@@ -1,21 +1,18 @@
-import enum
 import os
 import types
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Generic, Iterable, List, Optional, Protocol, Tuple, Type, TypeVar, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Type, Union, cast
 
 import pytest
-from typing_extensions import Self, TypeAlias, TypeGuard
+from typing_extensions import TypeAlias, TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._utils import partition
+from .._utils import PathTrie, partition
 
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
-T = TypeVar("T")
-T2 = TypeVar("T2")
 
 TestObject = Union[Type[object], T_OpaqueCallable]
 
@@ -52,93 +49,6 @@ class SetDefaultHookFunction(Protocol):
         for_notebook: Callable[[Union[str, "os.PathLike[str]"]], Callable[[SetDefaultForFileHookFunction], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()
-
-
-class PathTrie(Generic[T]):
-    """A trie that accepts the parts (i.e `Path.parts`) of an absolute path, and stores some associated payload."""
-
-    class NoPayload:
-        """A distinct type used to signify that a PathTrie Node has no payload."""
-
-    @dataclass
-    class Node(Generic[T2]):
-        """A Node of a PathTrie that can store a generic payload."""
-
-        payload: Union[T2, Type["PathTrie.NoPayload"]] = field(default_factory=lambda: PathTrie.NoPayload)
-        children: Dict[str, Self] = field(default_factory=dict)
-
-    class InsertType(enum.Enum):
-        LEAF = enum.auto()
-        """Whether the inserted path is not a prefix of another value in the trie."""
-        PREFIX = enum.auto()
-        """Whether the inserted path is a prefix of another value in the trie."""
-
-    def __init__(self, root_payload: T) -> None:
-        self.root: PathTrie.Node[T] = PathTrie.Node(payload=root_payload)
-
-    @staticmethod
-    def _normalize(p: Union[str, "os.PathLike[str]"]) -> Path:
-        """Normalize the path argument."""
-        return Path(p).resolve()
-
-    def __contains__(self, obj: object) -> bool:
-        """Return whether the PathTrie has a payload for the given object."""
-        if not isinstance(obj, (str, os.PathLike)):
-            return False
-
-        curr = self.root
-
-        for part in self._normalize(obj).parts:
-            if part not in curr.children:
-                return False
-            curr = curr.children[part]
-
-        return curr.payload is not PathTrie.NoPayload
-
-    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> "PathTrie.InsertType":
-        """Insert a payload for a given path.
-
-        :param p: The path to insert. If `None`, will insert at root
-        :type p: Optional[Union[str, "os.PathLike[str]"]]
-        :param T payload: The payload to store
-        :returns: Whether or not the inserted path is the prefix of another path in the trie.
-        :rtype: InsertType
-        """
-        curr = self.root
-        insert_type = PathTrie.InsertType.PREFIX
-
-        for part in self._normalize(p).parts if p is not None else ():
-            if part not in curr.children:
-                insert_type = PathTrie.InsertType.LEAF
-            curr = curr.children.setdefault(part, PathTrie.Node())
-
-        curr.payload = payload
-        return insert_type
-
-    def longest_common_prefix(self, p: Union[str, "os.PathLike[str]"]) -> T:
-        """Retrieve the payload of the longest matching prefix of the argument present in the trie.
-
-        This method is guaranteed to always return a result, since the root node always has a payload.
-
-        :param p: The path to find the longest common prefix of.
-        :type p: Optional[Union[str, "os.PathLike[str]"]]
-        :returns: The payload of the longest common prefix
-        :rtype: T
-        """
-        curr = self.root
-        result = self.root.payload
-        assert result is not PathTrie.NoPayload, "root node should always have a valid payload"
-
-        for part in self._normalize(p).parts:
-            if part not in curr.children:
-                break
-
-            curr = curr.children[part]
-
-            if curr.payload is not PathTrie.NoPayload:
-                result = curr.payload
-
-        return cast(T, result)
 
 
 class ScopedFunctionHandler:
