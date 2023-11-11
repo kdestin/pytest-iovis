@@ -1,7 +1,9 @@
 import types
-from typing import Callable, List, Type, Union
+from typing import List
 
 import pytest
+
+from ._types import TestObject
 
 
 class JupyterNotebookFile(pytest.Module):
@@ -11,9 +13,7 @@ class JupyterNotebookFile(pytest.Module):
     parameterization)
     """
 
-    def __init__(
-        self, *args: object, test_functions: List[Union[Type[object], Callable[..., object]]], **kwargs: object
-    ) -> None:
+    def __init__(self, *args: object, test_functions: List[TestObject], **kwargs: object) -> None:
         super().__init__(*args, **kwargs)  # type: ignore[arg-type]
         self._test_functions = test_functions
         """The test functions to generate for the collected notebook."""

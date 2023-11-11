@@ -3,18 +3,14 @@ import types
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Type, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Union, cast
 
 import pytest
-from typing_extensions import TypeAlias, TypeGuard
+from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
+from .._types import TestObject
 from .._utils import PathTrie, partition
-
-T_OpaqueCallable: TypeAlias = Callable[..., object]
-"""A type alias for a callable with opaque types (vs Any)."""
-
-TestObject = Union[Type[object], T_OpaqueCallable]
 
 
 @dataclass
@@ -238,7 +234,7 @@ class JupyterNotebookDiscoverer:
     """A placeholder parametrization id for the notebook_path fixture that will later be removed."""
 
     @pytest.hookimpl(trylast=True)
-    def pytest_iovis_set_default_functions(self) -> Iterable[T_OpaqueCallable]:
+    def pytest_iovis_set_default_functions(self) -> Iterable[TestObject]:
         def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
             """Do nothing."""
 
