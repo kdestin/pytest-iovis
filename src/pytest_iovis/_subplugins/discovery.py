@@ -23,6 +23,34 @@ class NotebookPathArg:
     """The absolute path to the file."""
 
 
+class SetFunctionHookSpec:
+    @pytest.hookspec(firstresult=True)
+    def pytest_iovis_set_default_functions(
+        self,
+        inherited: Tuple[TestObject, ...],
+        for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
+    ) -> Optional[Iterable[TestObject]]:
+        """Set the default test functions for collected Jupyter Notebooks.
+
+        The defaults returned by this hook apply to all collected notebooks under the parent directory this is
+        called from.
+
+        This hook will only be called when found in `conftest.py`.
+
+        :param inherited: The test functions inherited from a higher scope
+        :type inherited: Tuple[TestObject, ...]
+        :return: Either:
+            * A iterable of test functions that will be used for all collected notebooks
+            * None, which is equivalent to this hook not having been called
+        :rtype: Optional[Iterable[TestObject]]
+        """
+        raise NotImplementedError()
+
+
+# Useless assignment so that mypy ensures the hook implements protocol
+_: SetDefaultHookFunction = SetFunctionHookSpec().pytest_iovis_set_default_functions
+
+
 class ScopedFunctionHandler:
     """A plugin that builds an index that can be used to query which test function to use for a given path.
 
@@ -36,6 +64,8 @@ class ScopedFunctionHandler:
         care about, all the relevant conftest.py's are in our index.
 
     """
+
+    HOOK_NAME = SetFunctionHookSpec.pytest_iovis_set_default_functions.__name__
 
     def __init__(self) -> None:
         # Assigning to the instance instead of stashing in a session because the session object isn't available in
@@ -66,34 +96,7 @@ class ScopedFunctionHandler:
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
         """Register the `pytest_iovis_set_default_functions` hook."""
-
-        class HookSpec:
-            @pytest.hookspec(firstresult=True)
-            def pytest_iovis_set_default_functions(
-                self,
-                inherited: Tuple[TestObject, ...],
-                for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
-            ) -> Optional[Iterable[TestObject]]:
-                """Set the default test functions for collected Jupyter Notebooks.
-
-                The defaults returned by this hook apply to all collected notebooks under the parent directory this is
-                called from.
-
-                This hook will only be called when found in `conftest.py`.
-
-                :param inherited: The test functions inherited from a higher scope
-                :type inherited: Tuple[TestObject, ...]
-                :return: Either:
-                    * A iterable of test functions that will be used for all collected notebooks
-                    * None, which is equivalent to this hook not having been called
-                :rtype: Optional[Iterable[TestObject]]
-                """
-                raise NotImplementedError()
-
-        # Useless assignment so that mypy ensures the hook implements protocol
-        _: SetDefaultHookFunction = HookSpec().pytest_iovis_set_default_functions
-
-        pluginmanager.add_hookspecs(HookSpec)
+        pluginmanager.add_hookspecs(SetFunctionHookSpec)
 
     @staticmethod
     def is_conftest(obj: object) -> TypeGuard[types.ModuleType]:
@@ -102,7 +105,7 @@ class ScopedFunctionHandler:
     @staticmethod
     def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetDefaultHookFunction:
         """Return the hook function that runs on all plugins except the supplied ones."""
-        return manager.subset_hook_caller("pytest_iovis_set_default_functions", remove_plugins=plugins)
+        return manager.subset_hook_caller(ScopedFunctionHandler.HOOK_NAME, remove_plugins=plugins)
 
     def pytest_plugin_registered(self, plugin: object, manager: pytest.PytestPluginManager) -> None:
         if not self.is_conftest(plugin):
@@ -130,7 +133,7 @@ class ScopedFunctionHandler:
         if scope in path_trie:
             return
 
-        empty_hook_caller = manager.subset_hook_caller("pytest_iovis_set_default_functions", manager.get_plugins())
+        empty_hook_caller = manager.subset_hook_caller(self.HOOK_NAME, manager.get_plugins())
 
         def make_register_fn(
             confdir: Path,
@@ -141,7 +144,7 @@ class ScopedFunctionHandler:
                 assert pathlib_path.is_file(), pathlib_path
 
                 def decorator(f: SetDefaultForFileHookFunction) -> None:
-                    def pytest_iovis_set_default_functions(
+                    def hook(
                         inherited: Tuple[TestObject, ...], for_notebook: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
                         return cast(
@@ -151,7 +154,7 @@ class ScopedFunctionHandler:
                             ),
                         )
 
-                    self.file_hooks[pathlib_path] = pytest_iovis_set_default_functions
+                    self.file_hooks[pathlib_path] = hook
 
                 return decorator
 
