@@ -2,13 +2,13 @@ import types
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Protocol, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
 
 import pytest
 from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._types import PathType, TestObject
+from .._types import PathType, SetDefaultForFileHookFunction, SetDefaultHookFunction, TestObject
 from .._utils import PathTrie, partition
 
 
@@ -21,29 +21,6 @@ class NotebookPathArg:
 
     path: Path
     """The absolute path to the file."""
-
-
-class SetDefaultForFileHookFunction(Protocol):
-    """The type of the user-provided callable used to specify tests for a single file."""
-
-    def __call__(
-        self,
-        *,
-        inherited: Tuple[TestObject, ...],
-    ) -> Iterable[TestObject]:
-        raise NotImplementedError()
-
-
-class SetDefaultHookFunction(Protocol):
-    """The type of the pytest_iovis_set_default_function hook."""
-
-    def __call__(
-        self,
-        *,
-        inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
-    ) -> Optional[Iterable[TestObject]]:
-        raise NotImplementedError()
 
 
 class ScopedFunctionHandler:
