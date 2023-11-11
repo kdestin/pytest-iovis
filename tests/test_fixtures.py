@@ -28,7 +28,7 @@ def test_notebook_path(testdir: pytest.Testdir, dummy_notebook: Path) -> None:
             assert notebook_path.is_absolute(), "notebook_path should be an absolute path"
             assert notebook_path == Path({str(dummy_notebook)!r})
 
-        def pytest_iovis_set_default_functions():
+        def pytest_iovis_set_test_functions():
             yield test_fixture
     """
     )

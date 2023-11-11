@@ -8,7 +8,7 @@ import pytest
 from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._types import PathType, SetDefaultForFileHookFunction, SetDefaultHookFunction, TestObject
+from .._types import FileTestFunctionCallback, PathType, SetTestFunctionHook, TestObject
 from .._utils import PathTrie, partition
 
 
@@ -25,10 +25,10 @@ class NotebookPathArg:
 
 class SetFunctionHookSpec:
     @pytest.hookspec(firstresult=True)
-    def pytest_iovis_set_default_functions(
+    def pytest_iovis_set_test_functions(
         self,
         inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
+        for_notebook: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         """Set the default test functions for collected Jupyter Notebooks.
 
@@ -48,7 +48,7 @@ class SetFunctionHookSpec:
 
 
 # Useless assignment so that mypy ensures the hook implements protocol
-_: SetDefaultHookFunction = SetFunctionHookSpec().pytest_iovis_set_default_functions
+_: SetTestFunctionHook = SetFunctionHookSpec().pytest_iovis_set_test_functions
 
 
 class ScopedFunctionHandler:
@@ -65,12 +65,12 @@ class ScopedFunctionHandler:
 
     """
 
-    HOOK_NAME = SetFunctionHookSpec.pytest_iovis_set_default_functions.__name__
+    HOOK_NAME = SetFunctionHookSpec.pytest_iovis_set_test_functions.__name__
 
     def __init__(self) -> None:
         # Assigning to the instance instead of stashing in a session because the session object isn't available in
         # pytest_plugin_registered.
-        self.file_hooks: Dict[Path, SetDefaultHookFunction] = {}
+        self.file_hooks: Dict[Path, SetTestFunctionHook] = {}
         self.path_trie: Optional[PathTrie[Tuple[TestObject, ...]]] = None
 
     @pytest.hookimpl(trylast=True)
@@ -95,7 +95,7 @@ class ScopedFunctionHandler:
             )
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
-        """Register the `pytest_iovis_set_default_functions` hook."""
+        """Register the `pytest_iovis_set_test_functions` hook."""
         pluginmanager.add_hookspecs(SetFunctionHookSpec)
 
     @staticmethod
@@ -103,7 +103,7 @@ class ScopedFunctionHandler:
         return isinstance(obj, types.ModuleType) and Path(obj.__file__ or ".").name == "conftest.py"
 
     @staticmethod
-    def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetDefaultHookFunction:
+    def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetTestFunctionHook:
         """Return the hook function that runs on all plugins except the supplied ones."""
         return manager.subset_hook_caller(ScopedFunctionHandler.HOOK_NAME, remove_plugins=plugins)
 
@@ -119,12 +119,12 @@ class ScopedFunctionHandler:
             self.call_hook_without(manager, manager.get_plugins().difference({plugin})),
         )
 
-    def add_scoped_hook(self, manager: pytest.PytestPluginManager, scope: Path, hook: SetDefaultHookFunction) -> None:
+    def add_scoped_hook(self, manager: pytest.PytestPluginManager, scope: Path, hook: SetTestFunctionHook) -> None:
         """Invoke the hook function for the specified scope, and add the result to our function index.
 
         :param pytest.PytestPluginManager manager: The pytest plugin manager for the current session
         :param Path scope: The scope the hook applies to
-        :param SetDefaultHookFunction hook: The hook function to invoke
+        :param SetTestFunctionHook hook: The hook function to invoke
         """
         path_trie = self.path_trie
         if path_trie is None:
@@ -137,13 +137,13 @@ class ScopedFunctionHandler:
 
         def make_register_fn(
             confdir: Path,
-        ) -> Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]]:
-            def for_notebook(path: PathType) -> Callable[[SetDefaultForFileHookFunction], None]:
+        ) -> Callable[[PathType], Callable[[FileTestFunctionCallback], None]]:
+            def for_notebook(path: PathType) -> Callable[[FileTestFunctionCallback], None]:
                 pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
                 assert confdir in pathlib_path.parents
                 assert pathlib_path.is_file(), pathlib_path
 
-                def decorator(f: SetDefaultForFileHookFunction) -> None:
+                def decorator(f: FileTestFunctionCallback) -> None:
                     def hook(
                         inherited: Tuple[TestObject, ...], for_notebook: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
@@ -210,7 +210,7 @@ class JupyterNotebookDiscoverer:
     """A placeholder parametrization id for the notebook_path fixture that will later be removed."""
 
     @pytest.hookimpl(trylast=True)
-    def pytest_iovis_set_default_functions(self) -> Iterable[TestObject]:
+    def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
         def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
             """Do nothing."""
 

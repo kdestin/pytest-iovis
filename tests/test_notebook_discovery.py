@@ -25,7 +25,7 @@ def test_notebooks_collected(testdir: pytest.Testdir) -> None:
     res.stdout.fnmatch_lines(f"*{test_notebooks_collected.__name__}.ipynb>*")
 
 
-class TestOverrideDefaultTestFunctions:
+class TestSetTestFunctions:
     @staticmethod
     def override_test_functions(
         testdir: pytest.Testdir,
@@ -54,7 +54,7 @@ class TestOverrideDefaultTestFunctions:
                 *[inspect.getsource(f).lstrip() for f in funcs],
                 "",
                 *[inspect.getsource(f).lstrip() for f in for_notebooks.values()],
-                "def pytest_iovis_set_default_functions(inherited, for_notebook):",
+                "def pytest_iovis_set_test_functions(inherited, for_notebook):",
                 f"   if {inherit!r}:",
                 "      yield from inherited",
                 *[f"   for_notebook({k!r})({v.__name__})" for k, v in for_notebooks.items()],
@@ -294,7 +294,7 @@ class TestOverrideDefaultTestFunctions:
         testdir: pytest.Testdir,
         dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
     ) -> None:
-        """Validate that default functions can be configured simultaneously for multiple branches in a filesystem."""
+        """Validate that test functions can be configured simultaneously for multiple branches in a filesystem."""
 
         def test_function(notebook_path: object) -> None:  # noqa: ARG001
             pass
@@ -347,7 +347,7 @@ class TestOverrideDefaultTestFunctions:
         testdir: pytest.Testdir,
         dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
     ) -> None:
-        """Validate that configuring default tests in a subdirectory doesn't poison non-configured branches."""
+        """Validate that configuring test functions in a subdirectory doesn't poison non-configured branches."""
 
         def test_function1(notebook_path: object) -> None:  # noqa: ARG001
             pass

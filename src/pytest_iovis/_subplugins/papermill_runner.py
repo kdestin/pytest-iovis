@@ -67,7 +67,7 @@ class PapermillTestRunner:
 
         return []
 
-    def pytest_iovis_set_default_functions(self) -> Iterable[TestObject]:
+    def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
         yield test_notebook_runs
 
     def pytest_exception_interact(

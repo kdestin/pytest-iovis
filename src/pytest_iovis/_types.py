@@ -26,7 +26,7 @@ TestObject: TypeAlias = Union[NamedCallable, Type[object]]
 PathType: TypeAlias = Union[str, "os.PathLike[str]"]
 
 
-class SetDefaultForFileHookFunction(Protocol):
+class FileTestFunctionCallback(Protocol):
     """The type of the user-provided callable used to specify tests for a single file."""
 
     def __call__(
@@ -37,13 +37,13 @@ class SetDefaultForFileHookFunction(Protocol):
         raise NotImplementedError()
 
 
-class SetDefaultHookFunction(Protocol):
-    """The type of the pytest_iovis_set_default_function hook."""
+class SetTestFunctionHook(Protocol):
+    """The type of the pytest_iovis_set_test_functions hook."""
 
     def __call__(
         self,
         *,
         inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[PathType], Callable[[SetDefaultForFileHookFunction], None]],
+        for_notebook: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()

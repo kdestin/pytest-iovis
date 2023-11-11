@@ -87,7 +87,7 @@ detailed description.
       assert func(1, 2) == 3
 
 
-  def pytest_iovis_set_default_functions():
+  def pytest_iovis_set_test_functions():
       yield test_notebook
   ```
 
