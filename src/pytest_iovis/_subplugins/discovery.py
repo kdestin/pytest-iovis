@@ -15,6 +15,7 @@ from .._utils import partition
 T_OpaqueCallable: TypeAlias = Callable[..., object]
 """A type alias for a callable with opaque types (vs Any)."""
 T = TypeVar("T")
+T2 = TypeVar("T2")
 
 TestObject = Union[Type[object], T_OpaqueCallable]
 
@@ -53,30 +54,27 @@ class SetDefaultHookFunction(Protocol):
         raise NotImplementedError()
 
 
-class NoPayload:
-    """A distinct type used to signify that a PathTrie Node has no payload."""
-
-
-@dataclass
-class Node(Generic[T]):
-    """A Node of a PathTrie that can store a generic payload."""
-
-    payload: Union[T, Type[NoPayload]] = NoPayload
-    children: Dict[str, Self] = field(default_factory=dict)
-
-
-class InsertType(enum.Enum):
-    LEAF = enum.auto()
-    """Whether the inserted path is not a prefix of another value in the trie."""
-    PREFIX = enum.auto()
-    """Whether the inserted path is a prefix of another value in the trie."""
-
-
 class PathTrie(Generic[T]):
     """A trie that accepts the parts (i.e `Path.parts`) of an absolute path, and stores some associated payload."""
 
+    class NoPayload:
+        """A distinct type used to signify that a PathTrie Node has no payload."""
+
+    @dataclass
+    class Node(Generic[T2]):
+        """A Node of a PathTrie that can store a generic payload."""
+
+        payload: Union[T2, Type["PathTrie.NoPayload"]] = field(default_factory=lambda: PathTrie.NoPayload)
+        children: Dict[str, Self] = field(default_factory=dict)
+
+    class InsertType(enum.Enum):
+        LEAF = enum.auto()
+        """Whether the inserted path is not a prefix of another value in the trie."""
+        PREFIX = enum.auto()
+        """Whether the inserted path is a prefix of another value in the trie."""
+
     def __init__(self, root_payload: T) -> None:
-        self.root: Node[T] = Node(payload=root_payload)
+        self.root: PathTrie.Node[T] = PathTrie.Node(payload=root_payload)
 
     @staticmethod
     def _normalize(p: Union[str, "os.PathLike[str]"]) -> Path:
@@ -95,9 +93,9 @@ class PathTrie(Generic[T]):
                 return False
             curr = curr.children[part]
 
-        return curr.payload is not NoPayload
+        return curr.payload is not PathTrie.NoPayload
 
-    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> InsertType:
+    def insert(self, p: Optional[Union[str, "os.PathLike[str]"]], payload: T) -> "PathTrie.InsertType":
         """Insert a payload for a given path.
 
         :param p: The path to insert. If `None`, will insert at root
@@ -107,12 +105,12 @@ class PathTrie(Generic[T]):
         :rtype: InsertType
         """
         curr = self.root
-        insert_type = InsertType.PREFIX
+        insert_type = PathTrie.InsertType.PREFIX
 
         for part in self._normalize(p).parts if p is not None else ():
             if part not in curr.children:
-                insert_type = InsertType.LEAF
-            curr = curr.children.setdefault(part, Node())
+                insert_type = PathTrie.InsertType.LEAF
+            curr = curr.children.setdefault(part, PathTrie.Node())
 
         curr.payload = payload
         return insert_type
@@ -129,7 +127,7 @@ class PathTrie(Generic[T]):
         """
         curr = self.root
         result = self.root.payload
-        assert result is not NoPayload, "root node should always have a valid payload"
+        assert result is not PathTrie.NoPayload, "root node should always have a valid payload"
 
         for part in self._normalize(p).parts:
             if part not in curr.children:
@@ -137,7 +135,7 @@ class PathTrie(Generic[T]):
 
             curr = curr.children[part]
 
-            if curr.payload is not NoPayload:
+            if curr.payload is not PathTrie.NoPayload:
                 result = curr.payload
 
         return cast(T, result)
@@ -285,7 +283,7 @@ class ScopedFunctionHandler:
             return
 
         # Sanity check to make sure we're getting scopes that are always more specific
-        assert path_trie.insert(scope, tuple(functions_for_scope)) == InsertType.LEAF
+        assert path_trie.insert(scope, tuple(functions_for_scope)) == PathTrie.InsertType.LEAF
 
     def add_scoped_hook_for_file(self, manager: pytest.PytestPluginManager, path: Path) -> None:
         """Invoke the hook function for the specified scope, and add the result to our function index.
