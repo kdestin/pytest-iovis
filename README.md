@@ -91,6 +91,9 @@ detailed description.
       yield test_notebook
   ```
 
+- **[nbval]** is a [pytest] plugin that ensures that a notebook produces output matching the output stored in the
+  notebook.
+
 - **[pytest-notebook]** plugin uses approval/snapshot testing to guard against regressions in notebook output.
 
 ## Plugin Name
@@ -100,6 +103,7 @@ _Iovis_ is the singular [genitive case](https://en.wikipedia.org/wiki/Genitive_c
 Which is the Latin name of the Roman god Jupiter, from which the planet and [Jupyter Notebooks] take their namesake.
 
 [jupyter notebooks]: https://jupyter.org/
+[nbval]: https://github.com/computationalmodelling/nbval
 [papermill]: https://github.com/nteract/papermill
 [pytest]: https://docs.pytest.org/en/latest/
 [pytest-notebook]: https://github.com/chrisjsewell/pytest-notebook
