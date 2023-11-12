@@ -12,8 +12,8 @@ def pytest_configure(config: pytest.Config) -> None:
     plugin_name = config.pluginmanager.get_name(sys.modules[__name__])
 
     config.pluginmanager.register(_fixtures)
+    config.pluginmanager.register(JupyterNotebookDiscoverer())
+
+    # Optional plugins that can be freely disabled
     config.pluginmanager.register(IPythonMarkupPlugin(), name=f"{plugin_name}.{IPythonMarkupPlugin.PLUGIN_NAME}")
-    config.pluginmanager.register(
-        JupyterNotebookDiscoverer(), name=f"{plugin_name}.{JupyterNotebookDiscoverer.PLUGIN_NAME}"
-    )
     config.pluginmanager.register(PapermillTestRunner(), name=f"{plugin_name}.{PapermillTestRunner.PLUGIN_NAME}")
