@@ -14,10 +14,9 @@ def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.
     return testdir
 
 
-def test_notebooks_collected(testdir: pytest.Testdir) -> None:
+def test_notebooks_collected(testdir: pytest.Testdir, dummy_notebook: Path) -> None:
     """Validate that Jupyter Notebooks are collected as pytest.Items."""
-    testdir.makefile(".ipynb", "")
-    res = testdir.runpytest("--collect-only")
+    res = testdir.runpytest("--collect-only", dummy_notebook)
 
     outcomes = res.parseoutcomes()
     num_collected_tests = outcomes.get("tests", outcomes.get("test", 0))
@@ -68,19 +67,16 @@ class TestSetTestFunctions:
         else:
             testdir.makepyfile(**{f"{Path(directory, 'conftest')}": conftest})
 
-    def test_can_override_with_nothing(self, testdir: pytest.Testdir) -> None:
+    def test_can_override_with_nothing(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
         """Validate calling the register function with no test functions disables the plugin provided default."""
-        testdir.makefile(".ipynb", "")
-
         self.override_test_functions(testdir, *[])
 
-        res = testdir.runpytest("-v")
+        res = testdir.runpytest("-v", dummy_notebook)
 
         res.assert_outcomes()  # Assert that nothing is run
 
-    def test_can_replace_with_one(self, testdir: pytest.Testdir) -> None:
+    def test_can_replace_with_one(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
         """Validate that a user can replace the plugin provided default with their own."""
-        testdir.makefile(".ipynb", "")
 
         def test_function(notebook_path: object) -> None:  # noqa: ARG001
             pass
@@ -90,9 +86,11 @@ class TestSetTestFunctions:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=1)
-        res.stdout.fnmatch_lines("test_can_replace_with_one.ipynb::test_function*")
+        res.stdout.fnmatch_lines(f"{dummy_notebook.name}::test_function*")
 
-    def test_can_override_with_many(self, testdir: pytest.Testdir) -> None:
+    def test_can_override_with_many(
+        self, testdir: pytest.Testdir, dummy_notebook_factory: Callable[[Optional[PathType]], Path]
+    ) -> None:
         """Validate that a user can replace the plugin provided default with many others."""
 
         def test_function1(notebook_path: object) -> None:  # noqa: ARG001
@@ -105,19 +103,21 @@ class TestSetTestFunctions:
             pass
 
         self.override_test_functions(testdir, test_function1, test_function2, test_function3)
-        testdir.makefile(".ipynb", **{"test_can_override_with_many1": "", "test_can_override_with_many2": ""})
+
+        notebook1 = dummy_notebook_factory("test_can_override_with_many1")
+        notebook2 = dummy_notebook_factory("test_can_override_with_many2")
 
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=6)
         res.stdout.fnmatch_lines(
             [
-                "test_can_override_with_many1.ipynb::test_function1*",
-                "test_can_override_with_many1.ipynb::test_function2*",
-                "test_can_override_with_many1.ipynb::test_function3*",
-                "test_can_override_with_many2.ipynb::test_function1*",
-                "test_can_override_with_many2.ipynb::test_function2*",
-                "test_can_override_with_many2.ipynb::test_function3*",
+                f"{notebook1.name}::test_function1*",
+                f"{notebook1.name}::test_function2*",
+                f"{notebook1.name}::test_function3*",
+                f"{notebook2.name}::test_function1*",
+                f"{notebook2.name}::test_function2*",
+                f"{notebook2.name}::test_function3*",
             ]
         )
 
