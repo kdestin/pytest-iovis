@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Union, cast
+from typing import Any, Callable, Dict, Iterable, List, Optional, Union, cast
 
 import papermill as pm  # type: ignore[import-untyped]
 import pytest
@@ -10,23 +10,9 @@ from .discovery import JupyterNotebookDiscoverer
 from .markup import IPythonMarkupPlugin
 
 
-def test_notebook_runs(
-    notebook_path: Path,
-    papermill_output_path: Optional[Path],
-    papermill_parameters: Dict[str, Any],
-    papermill_extra_arguments: List[str],
-    papermill_cwd: Optional[Path],
-) -> None:
-    cast(
-        NotebookNode,
-        pm.execute_notebook(
-            notebook_path,
-            papermill_output_path,
-            parameters=papermill_parameters,
-            extra_arguments=papermill_extra_arguments,
-            cwd=papermill_cwd,
-        ),
-    )
+def test_notebook_runs(papermill_execute: Callable[[], NotebookNode]) -> None:
+    """Validates that notebook runs without raising exceptions."""
+    papermill_execute()
 
 
 class PapermillTestRunner:
@@ -34,6 +20,27 @@ class PapermillTestRunner:
 
     PLUGIN_NAME = "papermill_runner"
     """A user facing name that describes this plugin."""
+
+    @pytest.fixture()
+    def papermill_execute(
+        self,
+        notebook_path: Path,
+        papermill_output_path: Optional[Path],
+        papermill_parameters: Dict[str, Any],
+        papermill_extra_arguments: List[str],
+        papermill_cwd: Optional[Path],
+    ) -> Callable[[], NotebookNode]:
+        """Return a Callable[[], NotebookNode] that runs a notebook. Configurable with papermill_* fixtures."""
+        return lambda: cast(
+            NotebookNode,
+            pm.execute_notebook(
+                notebook_path,
+                papermill_output_path,
+                parameters=papermill_parameters,
+                extra_arguments=papermill_extra_arguments,
+                cwd=papermill_cwd,
+            ),
+        )
 
     @pytest.fixture()
     def papermill_parameters(self) -> Dict[str, Any]:

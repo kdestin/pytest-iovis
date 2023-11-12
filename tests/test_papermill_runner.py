@@ -14,6 +14,10 @@ class TestFixtures:
 
         res.stdout.fnmatch_lines(
             [
+                "papermill_execute -- */pytest_iovis/_subplugins/papermill_runner.py:*",
+                "    Return a Callable[[][[]], NotebookNode] that runs a notebook."
+                + " Configurable with papermill_* fixtures.",
+                "",
                 "papermill_parameters -- */pytest_iovis/_subplugins/papermill_runner.py:*",
                 "    Return a dictionary used to parameterize a Jupyter Notebook with Papermill.",
                 "",
