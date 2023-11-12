@@ -615,3 +615,73 @@ class TestFileHook:
             ],
             consecutive=True,
         )
+
+    def test_file_hook_resolves_path_relative_to_conftest(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
+    ) -> None:
+        """Validate that relative paths are resolved relative to the conftest they're provided from."""
+        dummy_notebook_factory("foo/bar/baz/test.ipynb")
+        dummy_notebook_factory("baz/quux/test.ipynb")
+        dummy_notebook_factory("grault/garply/waldo/fred/test.ipynb")
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        override_test_functions(testdir, inherit=True, tests_for={"foo/bar/baz/test.ipynb": file_hook})
+        override_test_functions(testdir, inherit=True, tests_for={"quux/test.ipynb": file_hook}, directory="baz")
+        override_test_functions(
+            testdir, inherit=True, tests_for={"waldo/fred/test.ipynb": file_hook}, directory="grault/garply/"
+        )
+
+        res = testdir.runpytest("-v")
+        res.assert_outcomes(passed=3)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "baz/quux/test.ipynb::test_function PASSED*",
+                "foo/bar/baz/test.ipynb::test_function PASSED*",
+                "grault/garply/waldo/fred/test.ipynb::test_function PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
+
+    def test_file_hook_handles_absolute_paths(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
+    ) -> None:
+        """Validate that notebooks can be specified using absolute paths."""
+        nb1 = dummy_notebook_factory("foo/bar/baz/test.ipynb")
+        nb2 = dummy_notebook_factory("baz/quux/test.ipynb")
+        nb3 = dummy_notebook_factory("grault/garply/waldo/fred/test.ipynb")
+
+        assert all(nb.is_absolute() for nb in (nb1, nb2, nb3))
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        override_test_functions(testdir, inherit=True, tests_for={str(nb1): file_hook})
+        override_test_functions(testdir, inherit=True, tests_for={str(nb2): file_hook}, directory="baz")
+        override_test_functions(testdir, inherit=True, tests_for={str(nb3): file_hook}, directory="grault/garply/")
+
+        res = testdir.runpytest("-v")
+        res.assert_outcomes(passed=3)
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "baz/quux/test.ipynb::test_function PASSED*",
+                "foo/bar/baz/test.ipynb::test_function PASSED*",
+                "grault/garply/waldo/fred/test.ipynb::test_function PASSED*",
+                "",
+            ],
+            consecutive=True,
+        )
