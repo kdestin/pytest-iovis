@@ -7,6 +7,47 @@ import pytest
 from pytest_iovis import PathType, TestObject
 
 
+def override_test_functions(
+    testdir: pytest.Testdir,
+    *funcs: TestObject,
+    inherit: bool = False,
+    for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
+    directory: Optional[PathType] = None,
+) -> None:
+    """Override the test functions used when collecting noteboks.
+
+    :param pytest.Testdir testdir: The testdir fixture
+    :param Callable *funcs: The test functions to use. Must be inspectable by inspect.getsource and have a
+                             __name__
+    :keyword inherit: Whether to inherit test functions from the parent scope
+    :type inherit: bool
+    :keyword for_notebook: Map of files to hook functions, used to configure test functions for that file
+    :type for_notebook: Optional[Dict[str, Callable[..., object]]]
+    :keyword directory: The directory to write the conftest.py to
+    :type directory: Optional[PathType]
+    """
+    if for_notebooks is None:
+        for_notebooks = {}
+
+    conftest = "\n".join(
+        [
+            *[inspect.getsource(f).lstrip() for f in funcs],
+            "",
+            *[inspect.getsource(f).lstrip() for f in for_notebooks.values()],
+            "def pytest_iovis_set_test_functions(inherited, for_notebook):",
+            f"   if {inherit!r}:",
+            "      yield from inherited",
+            *[f"   for_notebook({k!r})({v.__name__})" for k, v in for_notebooks.items()],
+            f"   yield from ({','.join([*(f.__name__ for f in funcs), ''])})",
+        ]
+    )
+
+    if directory is None:
+        testdir.makeconftest(conftest)
+    else:
+        testdir.makepyfile(**{f"{Path(directory, 'conftest')}": conftest})
+
+
 @pytest.fixture()
 def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
     """Return the testdir fixture, but ensure that the grouping subplugin is disabled and doesn't affect output."""
@@ -26,72 +67,33 @@ def test_notebooks_collected(testdir: pytest.Testdir, dummy_notebook: Path) -> N
 
 
 class TestSetTestFunctions:
-    @staticmethod
-    def override_test_functions(
-        testdir: pytest.Testdir,
-        *funcs: TestObject,
-        inherit: bool = False,
-        for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
-        directory: Optional[PathType] = None,
-    ) -> None:
-        """Override the test functions used when collecting noteboks.
+    """A set of tests that validate the simplest scenarios of a user setting tests for a single scope."""
 
-        :param pytest.Testdir testdir: The testdir fixture
-        :param Callable *funcs: The test functions to use. Must be inspectable by inspect.getsource and have a
-                                 __name__
-        :keyword inherit: Whether to inherit test functions from the parent scope
-        :type inherit: bool
-        :keyword for_notebook: Map of files to hook functions, used to configure test functions for that file
-        :type for_notebook: Optional[Dict[str, Callable[..., object]]]
-        :keyword directory: The directory to write the conftest.py to
-        :type directory: Optional[PathType]
-        """
-        if for_notebooks is None:
-            for_notebooks = {}
-
-        conftest = "\n".join(
-            [
-                *[inspect.getsource(f).lstrip() for f in funcs],
-                "",
-                *[inspect.getsource(f).lstrip() for f in for_notebooks.values()],
-                "def pytest_iovis_set_test_functions(inherited, for_notebook):",
-                f"   if {inherit!r}:",
-                "      yield from inherited",
-                *[f"   for_notebook({k!r})({v.__name__})" for k, v in for_notebooks.items()],
-                f"   yield from ({','.join([*(f.__name__ for f in funcs), ''])})",
-            ]
-        )
-
-        if directory is None:
-            testdir.makeconftest(conftest)
-        else:
-            testdir.makepyfile(**{f"{Path(directory, 'conftest')}": conftest})
-
-    def test_can_override_with_nothing(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
-        """Validate calling the register function with no test functions disables the plugin provided default."""
-        self.override_test_functions(testdir, *[])
+    def test_can_set_no_tests(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+        """Validate that a user can disable collection by setting no test functions."""
+        override_test_functions(testdir, *[])
 
         res = testdir.runpytest("-v", dummy_notebook)
 
         res.assert_outcomes()  # Assert that nothing is run
 
-    def test_can_replace_with_one(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
-        """Validate that a user can replace the plugin provided default with their own."""
+    def test_set_one_test(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+        """Validate that a user can provide a test function for collection."""
 
         def test_function(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function)
+        override_test_functions(testdir, test_function)
 
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=1)
         res.stdout.fnmatch_lines(f"{dummy_notebook.name}::test_function*")
 
-    def test_can_override_with_many(
+    def test_can_set_many_tests(
         self, testdir: pytest.Testdir, dummy_notebook_factory: Callable[[Optional[PathType]], Path]
     ) -> None:
-        """Validate that a user can replace the plugin provided default with many others."""
+        """Validate that a user can provide many test functions for collection."""
 
         def test_function1(notebook_path: object) -> None:  # noqa: ARG001
             pass
@@ -102,7 +104,7 @@ class TestSetTestFunctions:
         def test_function3(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function1, test_function2, test_function3)
+        override_test_functions(testdir, test_function1, test_function2, test_function3)
 
         notebook1 = dummy_notebook_factory("test_can_override_with_many1")
         notebook2 = dummy_notebook_factory("test_can_override_with_many2")
@@ -121,8 +123,8 @@ class TestSetTestFunctions:
             ]
         )
 
-    def test_can_override_with_test_class(self, testdir: pytest.Testdir, dummy_notebook: Path) -> None:
-        """Validate that a user can provide a test class."""
+    def test_set_test_class(self, testdir: pytest.Testdir, dummy_notebook: Path) -> None:
+        """Validate that a user can provide a test class for collection."""
 
         class TestClass:
             def test_function1(self, notebook_path: object) -> None:
@@ -134,7 +136,7 @@ class TestSetTestFunctions:
             def test_function3(self, notebook_path: object) -> None:
                 pass
 
-        self.override_test_functions(testdir, TestClass)
+        override_test_functions(testdir, TestClass)
 
         res = testdir.runpytest("-v", dummy_notebook)
 
@@ -143,13 +145,17 @@ class TestSetTestFunctions:
         res.stdout.fnmatch_lines(
             [
                 "",
-                "test_can_override_with_test_class.ipynb::TestClass::test_function1 PASSED*",
-                "test_can_override_with_test_class.ipynb::TestClass::test_function2 PASSED*",
-                "test_can_override_with_test_class.ipynb::TestClass::test_function3 PASSED*",
+                "test_set_test_class.ipynb::TestClass::test_function1 PASSED*",
+                "test_set_test_class.ipynb::TestClass::test_function2 PASSED*",
+                "test_set_test_class.ipynb::TestClass::test_function3 PASSED*",
                 "",
             ],
             consecutive=True,
         )
+
+
+class TestCascadingConfiguration:
+    """A set of tests that validate the behavior of a user configuring tests for multiple, nested scopes."""
 
     def test_nested_add_new_function(
         self,
@@ -167,8 +173,8 @@ class TestSetTestFunctions:
         def test_function3(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function1, test_function2)
-        self.override_test_functions(testdir, test_function3, inherit=True, directory="nested")
+        override_test_functions(testdir, test_function1, test_function2)
+        override_test_functions(testdir, test_function3, inherit=True, directory="nested")
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("nested/test.ipynb")
@@ -205,8 +211,8 @@ class TestSetTestFunctions:
         def test_function3(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function1, test_function2)
-        self.override_test_functions(testdir, test_function3, directory="nested")
+        override_test_functions(testdir, test_function1, test_function2)
+        override_test_functions(testdir, test_function3, directory="nested")
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("nested/test.ipynb")
@@ -241,8 +247,8 @@ class TestSetTestFunctions:
         def test_function3(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function1, test_function2)
-        self.override_test_functions(testdir, directory="nested")
+        override_test_functions(testdir, test_function1, test_function2)
+        override_test_functions(testdir, directory="nested")
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("nested/test.ipynb")
@@ -282,11 +288,11 @@ class TestSetTestFunctions:
         def test_function4(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function)
-        self.override_test_functions(testdir, test_function1, inherit=True, directory="nested1")
-        self.override_test_functions(testdir, test_function2, inherit=True, directory="nested1/nested2")
-        self.override_test_functions(testdir, test_function3, inherit=True, directory="nested1/nested2/nested3")
-        self.override_test_functions(testdir, test_function4, inherit=True, directory="nested1/nested2/nested3/nested4")
+        override_test_functions(testdir, test_function)
+        override_test_functions(testdir, test_function1, inherit=True, directory="nested1")
+        override_test_functions(testdir, test_function2, inherit=True, directory="nested1/nested2")
+        override_test_functions(testdir, test_function3, inherit=True, directory="nested1/nested2/nested3")
+        override_test_functions(testdir, test_function4, inherit=True, directory="nested1/nested2/nested3/nested4")
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("nested1/test.ipynb")
@@ -342,11 +348,11 @@ class TestSetTestFunctions:
         def test_function4(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function)
-        self.override_test_functions(testdir, test_function1, directory="foo")
-        self.override_test_functions(testdir, test_function2, directory="foo/bar", inherit=True)
-        self.override_test_functions(testdir, test_function3, directory="baz", inherit=True)
-        self.override_test_functions(testdir, test_function4, directory="grault/garply/waldo/fred", inherit=True)
+        override_test_functions(testdir, test_function)
+        override_test_functions(testdir, test_function1, directory="foo")
+        override_test_functions(testdir, test_function2, directory="foo/bar", inherit=True)
+        override_test_functions(testdir, test_function3, directory="baz", inherit=True)
+        override_test_functions(testdir, test_function4, directory="grault/garply/waldo/fred", inherit=True)
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("foo/test.ipynb")
@@ -386,8 +392,8 @@ class TestSetTestFunctions:
         def test_function2(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        self.override_test_functions(testdir, test_function1, directory="foo")
-        self.override_test_functions(testdir, test_function2, directory="foo/bar", inherit=True)
+        override_test_functions(testdir, test_function1, directory="foo")
+        override_test_functions(testdir, test_function2, directory="foo/bar", inherit=True)
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("foo/test.ipynb")
@@ -412,6 +418,10 @@ class TestSetTestFunctions:
             consecutive=True,
         )
 
+
+class TestFileHook:
+    """A set of tests that validates that a user can provide a callback used to register tests for a specific file."""
+
     def test_file_hook(
         self,
         testdir: pytest.Testdir,
@@ -425,7 +435,7 @@ class TestSetTestFunctions:
 
             yield test_function
 
-        self.override_test_functions(testdir, inherit=True, for_notebooks={"foo/bar/test.ipynb": file_hook})
+        override_test_functions(testdir, inherit=True, for_notebooks={"foo/bar/test.ipynb": file_hook})
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("foo/test.ipynb")
@@ -480,10 +490,10 @@ class TestSetTestFunctions:
 
             yield test_function3
 
-        self.override_test_functions(testdir, for_notebooks={"grault/garply/waldo/test.ipynb": file_hook})
-        self.override_test_functions(testdir, directory="grault", for_notebooks={"garply/waldo/test.ipynb": file_hook1})
-        self.override_test_functions(testdir, directory="grault/garply", for_notebooks={"waldo/test.ipynb": file_hook2})
-        self.override_test_functions(testdir, directory="grault/garply/waldo", for_notebooks={"test.ipynb": file_hook3})
+        override_test_functions(testdir, for_notebooks={"grault/garply/waldo/test.ipynb": file_hook})
+        override_test_functions(testdir, directory="grault", for_notebooks={"garply/waldo/test.ipynb": file_hook1})
+        override_test_functions(testdir, directory="grault/garply", for_notebooks={"waldo/test.ipynb": file_hook2})
+        override_test_functions(testdir, directory="grault/garply/waldo", for_notebooks={"test.ipynb": file_hook3})
 
         dummy_notebook_factory("grault/garply/waldo/test.ipynb")
 
@@ -527,7 +537,7 @@ class TestSetTestFunctions:
 
         dummy_notebook_factory("foo/bar/test.ipynb")
 
-        self.override_test_functions(
+        override_test_functions(
             testdir,
             test_function1,
             test_function2,
@@ -535,7 +545,7 @@ class TestSetTestFunctions:
         )
 
         # Override test functions one directory down
-        self.override_test_functions(testdir, test_function3, test_function4, directory="foo/")
+        override_test_functions(testdir, test_function3, test_function4, directory="foo/")
 
         res = testdir.runpytest("-v")
 
@@ -581,17 +591,17 @@ class TestSetTestFunctions:
         dummy_notebook_factory("foo/bar/test.ipynb")
         dummy_notebook_factory("quux/test.ipynb")
 
-        self.override_test_functions(
+        override_test_functions(
             testdir,
             test_function1,
             for_notebooks={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
         )
 
         # Override test functions one directory down
-        self.override_test_functions(
+        override_test_functions(
             testdir, test_function1, for_notebooks={"test.ipynb": file_hook, "foo/bar/test.ipynb": file_hook1}
         )
-        self.override_test_functions(testdir, inherit=True, directory="quux", for_notebooks={"test.ipynb": file_hook2})
+        override_test_functions(testdir, inherit=True, directory="quux", for_notebooks={"test.ipynb": file_hook2})
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=3)
