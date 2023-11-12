@@ -5,6 +5,8 @@ from typing import Callable, Dict, Optional, Union
 
 import pytest
 
+from pytest_iovis import TestObject
+
 
 @pytest.fixture()
 def testdir(testdir: pytest.Testdir, monkeypatch: pytest.MonkeyPatch) -> pytest.Testdir:
@@ -29,7 +31,7 @@ class TestSetTestFunctions:
     @staticmethod
     def override_test_functions(
         testdir: pytest.Testdir,
-        *funcs: Callable[..., object],
+        *funcs: TestObject,
         inherit: bool = False,
         for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
         directory: Optional[Union[str, "os.PathLike[str]"]] = None,
@@ -118,6 +120,36 @@ class TestSetTestFunctions:
                 "test_can_override_with_many2.ipynb::test_function2*",
                 "test_can_override_with_many2.ipynb::test_function3*",
             ]
+        )
+
+    def test_can_override_with_test_class(self, testdir: pytest.Testdir, dummy_notebook: Path) -> None:
+        """Validate that a user can provide a test class."""
+
+        class TestClass:
+            def test_function1(self, notebook_path: object) -> None:
+                pass
+
+            def test_function2(self, notebook_path: object) -> None:
+                pass
+
+            def test_function3(self, notebook_path: object) -> None:
+                pass
+
+        self.override_test_functions(testdir, TestClass)
+
+        res = testdir.runpytest("-v", dummy_notebook)
+
+        res.assert_outcomes(passed=3)
+
+        res.stdout.fnmatch_lines(
+            [
+                "",
+                "test_can_override_with_test_class.ipynb::TestClass::test_function1 PASSED*",
+                "test_can_override_with_test_class.ipynb::TestClass::test_function2 PASSED*",
+                "test_can_override_with_test_class.ipynb::TestClass::test_function3 PASSED*",
+                "",
+            ],
+            consecutive=True,
         )
 
     def test_nested_add_new_function(
