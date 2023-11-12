@@ -140,7 +140,9 @@ class ScopedFunctionHandler:
         ) -> Callable[[PathType], Callable[[FileTestFunctionCallback], None]]:
             def tests_for(path: PathType) -> Callable[[FileTestFunctionCallback], None]:
                 pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
-                assert confdir in pathlib_path.parents
+                __tracebackhide__ = True  # Hide this function from traceback
+                if confdir not in pathlib_path.parents:
+                    pytest.fail(f"{tests_for.__name__}'s path must be a subpath of the calling conftest's directory.")
                 assert pathlib_path.is_file(), pathlib_path
 
                 def decorator(f: FileTestFunctionCallback) -> None:

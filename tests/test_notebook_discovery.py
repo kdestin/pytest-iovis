@@ -685,3 +685,30 @@ class TestFileHook:
             ],
             consecutive=True,
         )
+
+    def test_file_hook_disallows_configuring_non_subpaths(
+        self,
+        testdir: pytest.Testdir,
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
+    ) -> None:
+        """Validate that file_hook disallows configuring paths that aren't a subpath of conftest directory."""
+        nb = dummy_notebook_factory("test.ipynb")
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        override_test_functions(testdir, inherit=True, directory="bar", tests_for={str(nb): file_hook})
+        res = testdir.runpytest("-v")
+        res.assert_outcomes(errors=1)
+        res.stdout.fnmatch_lines(
+            [
+                "bar/conftest.py:10: in pytest_iovis_set_test_functions",
+                f"    tests_for('{nb}')(file_hook)",
+                "E   Failed: tests_for's path must be a subpath of the calling conftest's directory.",
+                "*= short test summary info =*",
+            ],
+            consecutive=True,
+        )
