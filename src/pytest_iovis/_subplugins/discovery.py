@@ -148,7 +148,9 @@ class ScopedFunctionHandler:
                 __tracebackhide__ = True  # Hide this function from traceback
                 if confdir not in pathlib_path.parents:
                     pytest.fail(f"{tests_for.__name__}'s path must be a subpath of the calling conftest's directory.")
-                assert pathlib_path.is_file(), pathlib_path
+
+                if not pathlib_path.is_file():
+                    pytest.fail(f"Not a file: {pathlib_path}")
 
                 def decorator(f: FileTestFunctionCallback) -> None:
                     def hook(

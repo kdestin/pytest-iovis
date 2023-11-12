@@ -712,3 +712,29 @@ class TestFileHook:
             ],
             consecutive=True,
         )
+
+    def test_file_hook_disallows_non_existent_paths(
+        self,
+        testdir: pytest.Testdir,
+    ) -> None:
+        """Validate that file_hook disallows configuring paths that don't exist."""
+
+        def file_hook():  # type: ignore[no-untyped-def]  # noqa: ANN202
+            def test_function(notebook_path: object) -> None:  # noqa: ARG001
+                pass
+
+            yield test_function
+
+        override_test_functions(testdir, inherit=True, tests_for={"test.ipynb": file_hook})
+
+        res = testdir.runpytest("-v")
+        res.assert_outcomes(errors=1)
+        res.stdout.fnmatch_lines(
+            [
+                "conftest.py:10: in pytest_iovis_set_test_functions",
+                "    tests_for('test.ipynb')(file_hook)",
+                f"E   Failed: Not a file: {Path(testdir.tmpdir, 'test.ipynb')}",
+                "*= short test summary info =*",
+            ],
+            consecutive=True,
+        )
