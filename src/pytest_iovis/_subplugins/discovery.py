@@ -28,7 +28,7 @@ class SetFunctionHookSpec:
     def pytest_iovis_set_test_functions(
         self,
         inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
+        tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         """Set the default test functions for collected Jupyter Notebooks.
 
@@ -81,7 +81,7 @@ class ScopedFunctionHandler:
         conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
 
         non_conftest_hooks = self.call_hook_without(manager, conftest_plugins)
-        result = non_conftest_hooks(inherited=(), for_notebook=lambda _: lambda _: None)
+        result = non_conftest_hooks(inherited=(), tests_for=lambda _: lambda _: None)
 
         global_test_functions = tuple(result or ())
 
@@ -138,19 +138,19 @@ class ScopedFunctionHandler:
         def make_register_fn(
             confdir: Path,
         ) -> Callable[[PathType], Callable[[FileTestFunctionCallback], None]]:
-            def for_notebook(path: PathType) -> Callable[[FileTestFunctionCallback], None]:
+            def tests_for(path: PathType) -> Callable[[FileTestFunctionCallback], None]:
                 pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
                 assert confdir in pathlib_path.parents
                 assert pathlib_path.is_file(), pathlib_path
 
                 def decorator(f: FileTestFunctionCallback) -> None:
                     def hook(
-                        inherited: Tuple[TestObject, ...], for_notebook: object  # noqa: ARG001
+                        inherited: Tuple[TestObject, ...], tests_for: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
                         return cast(
                             Iterable[TestObject],
                             empty_hook_caller.call_extra(
-                                [f], {"inherited": inherited, "for_notebook": make_register_fn(pathlib_path)}
+                                [f], {"inherited": inherited, "tests_for": make_register_fn(pathlib_path)}
                             ),
                         )
 
@@ -158,10 +158,10 @@ class ScopedFunctionHandler:
 
                 return decorator
 
-            return for_notebook
+            return tests_for
 
         current_funcs = self.test_functions_for(scope)
-        functions_for_scope = hook(inherited=tuple(current_funcs), for_notebook=make_register_fn(scope))
+        functions_for_scope = hook(inherited=tuple(current_funcs), tests_for=make_register_fn(scope))
         if functions_for_scope is None:
             return
 

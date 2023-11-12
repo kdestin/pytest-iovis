@@ -11,7 +11,7 @@ def override_test_functions(
     testdir: pytest.Testdir,
     *funcs: TestObject,
     inherit: bool = False,
-    for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
+    tests_for: Optional[Dict[str, Callable[..., object]]] = None,
     directory: Optional[PathType] = None,
 ) -> None:
     """Override the test functions used when collecting noteboks.
@@ -21,23 +21,23 @@ def override_test_functions(
                              __name__
     :keyword inherit: Whether to inherit test functions from the parent scope
     :type inherit: bool
-    :keyword for_notebook: Map of files to hook functions, used to configure test functions for that file
-    :type for_notebook: Optional[Dict[str, Callable[..., object]]]
+    :keyword tests_for: Map of files to hook functions, used to configure test functions for that file
+    :type tests_for: Optional[Dict[str, Callable[..., object]]]
     :keyword directory: The directory to write the conftest.py to
     :type directory: Optional[PathType]
     """
-    if for_notebooks is None:
-        for_notebooks = {}
+    if tests_for is None:
+        tests_for = {}
 
     conftest = "\n".join(
         [
             *[inspect.getsource(f).lstrip() for f in funcs],
             "",
-            *[inspect.getsource(f).lstrip() for f in for_notebooks.values()],
-            "def pytest_iovis_set_test_functions(inherited, for_notebook):",
+            *[inspect.getsource(f).lstrip() for f in tests_for.values()],
+            "def pytest_iovis_set_test_functions(inherited, tests_for):",
             f"   if {inherit!r}:",
             "      yield from inherited",
-            *[f"   for_notebook({k!r})({v.__name__})" for k, v in for_notebooks.items()],
+            *[f"   tests_for({k!r})({v.__name__})" for k, v in tests_for.items()],
             f"   yield from ({','.join([*(f.__name__ for f in funcs), ''])})",
         ]
     )
@@ -435,7 +435,7 @@ class TestFileHook:
 
             yield test_function
 
-        override_test_functions(testdir, inherit=True, for_notebooks={"foo/bar/test.ipynb": file_hook})
+        override_test_functions(testdir, inherit=True, tests_for={"foo/bar/test.ipynb": file_hook})
 
         dummy_notebook_factory("test.ipynb")
         dummy_notebook_factory("foo/test.ipynb")
@@ -490,10 +490,10 @@ class TestFileHook:
 
             yield test_function3
 
-        override_test_functions(testdir, for_notebooks={"grault/garply/waldo/test.ipynb": file_hook})
-        override_test_functions(testdir, directory="grault", for_notebooks={"garply/waldo/test.ipynb": file_hook1})
-        override_test_functions(testdir, directory="grault/garply", for_notebooks={"waldo/test.ipynb": file_hook2})
-        override_test_functions(testdir, directory="grault/garply/waldo", for_notebooks={"test.ipynb": file_hook3})
+        override_test_functions(testdir, tests_for={"grault/garply/waldo/test.ipynb": file_hook})
+        override_test_functions(testdir, directory="grault", tests_for={"garply/waldo/test.ipynb": file_hook1})
+        override_test_functions(testdir, directory="grault/garply", tests_for={"waldo/test.ipynb": file_hook2})
+        override_test_functions(testdir, directory="grault/garply/waldo", tests_for={"test.ipynb": file_hook3})
 
         dummy_notebook_factory("grault/garply/waldo/test.ipynb")
 
@@ -541,7 +541,7 @@ class TestFileHook:
             testdir,
             test_function1,
             test_function2,
-            for_notebooks={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
+            tests_for={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
         )
 
         # Override test functions one directory down
@@ -594,14 +594,14 @@ class TestFileHook:
         override_test_functions(
             testdir,
             test_function1,
-            for_notebooks={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
+            tests_for={"foo/bar/test.ipynb": file_hook},  # Configure the file hook in the root conftest
         )
 
         # Override test functions one directory down
         override_test_functions(
-            testdir, test_function1, for_notebooks={"test.ipynb": file_hook, "foo/bar/test.ipynb": file_hook1}
+            testdir, test_function1, tests_for={"test.ipynb": file_hook, "foo/bar/test.ipynb": file_hook1}
         )
-        override_test_functions(testdir, inherit=True, directory="quux", for_notebooks={"test.ipynb": file_hook2})
+        override_test_functions(testdir, inherit=True, directory="quux", tests_for={"test.ipynb": file_hook2})
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=3)

@@ -44,6 +44,6 @@ class SetTestFunctionHook(Protocol):
         self,
         *,
         inherited: Tuple[TestObject, ...],
-        for_notebook: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
+        tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()
