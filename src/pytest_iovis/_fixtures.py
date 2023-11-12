@@ -1,24 +1,24 @@
 import types
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Iterable
 
 import pytest
 
-from ._subplugins import NotebookPathArg
+from ._subplugins import JupyterNotebookDiscoverer
 from ._venv_builder import ThinEnvBuilder
 
 
 @pytest.fixture()
 def notebook_path(request: pytest.FixtureRequest) -> Path:
     """Return the path to the notebook under test."""
-    param: Optional[object] = getattr(request, "param", None)
-    if not isinstance(param, NotebookPathArg):
+    path = JupyterNotebookDiscoverer.get_notebook_path(request.node)
+    if path is None:
         pytest.fail(
             f"Fixture {notebook_path.__name__!r} requested from function not managed by pytest-iovis.",
             pytrace=False,
         )
 
-    return param.path
+    return path
 
 
 @pytest.fixture()

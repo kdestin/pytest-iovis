@@ -1,8 +1,6 @@
 import types
-import uuid
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union, cast
+from typing import Callable, Dict, Iterable, Optional, Tuple, Union, cast
 
 import pytest
 from typing_extensions import TypeGuard
@@ -10,17 +8,6 @@ from typing_extensions import TypeGuard
 from .._file import JupyterNotebookFile
 from .._types import FileTestFunctionCallback, PathType, SetTestFunctionHook, TestObject
 from .._utils import PathTrie, partition
-
-
-@dataclass
-class NotebookPathArg:
-    """A thin wrapper around a pathlib.Path.
-
-    Allows to ensure that we're generating an id for the correct value in pytest_make_parametrize_id.
-    """
-
-    path: Path
-    """The absolute path to the file."""
 
 
 class SetFunctionHookSpec:
@@ -215,9 +202,6 @@ class JupyterNotebookDiscoverer:
     FIXTURE_NAME = "notebook_path"
     """The name of the fixture that will be parametrized by this plugin"""
 
-    __PLACEHOLDER_NOTEBOOK_PARAMSET_ID = f"{uuid.uuid4()}{uuid.uuid4()}"
-    """A placeholder parametrization id for the notebook_path fixture that will later be removed."""
-
     @pytest.hookimpl(trylast=True)
     def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
         def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
@@ -254,46 +238,10 @@ class JupyterNotebookDiscoverer:
     @classmethod
     def get_notebook_path(cls, item: Union[pytest.Item, pytest.Collector]) -> Optional[Path]:
         """Get the notebook path associated with a test function."""
-        isParameterizedFunction = isinstance(item, pytest.Function) and hasattr(item, "callspec")
-
-        if not isParameterizedFunction:
-            return None
-
         if not cls.is_managed_function(item):
             return None
 
         try:
-            args = cast(NotebookPathArg, item.callspec.getparam(cls.FIXTURE_NAME))
-            return args.path
+            return item.path
         except ValueError:
             return None
-
-    def pytest_make_parametrize_id(self, val: object, argname: str) -> Optional[str]:
-        """Return a placeholder ID when parametrizing on the notebook path fixture that can be later removed."""
-        if not (isinstance(val, NotebookPathArg) and argname == self.FIXTURE_NAME):
-            return None
-
-        return self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID
-
-    def pytest_generate_tests(self, metafunc: pytest.Metafunc) -> None:
-        """Parametrize the `notebook_path` fixture to associate each test function with the notebook path."""
-        if not self.is_managed_function(metafunc.definition):
-            return
-
-        parent = metafunc.definition.getparent(JupyterNotebookFile)
-        assert parent is not None
-        # Indirect Parameterization allow's for the user's input to be used as the test ID, and delay resolving it
-        # to a user's input to a pathlib.Path until right before the fixture actually produces a value.
-        metafunc.parametrize(self.FIXTURE_NAME, [NotebookPathArg(path=parent.path)], indirect=True)
-
-        # Remove our placeholder ID from the ID list
-        for c in metafunc._calls:
-            c._idlist[:] = [s for s in c._idlist if not s.startswith(self.__PLACEHOLDER_NOTEBOOK_PARAMSET_ID)]
-
-    def pytest_collection_modifyitems(self, items: List[pytest.Item]) -> None:
-        """Remove empty parametrization brackets."""
-        for item in items:
-            # Remove empty parameterization brackets
-            if self.is_managed_function(item) and item.name.endswith("[]"):
-                item.name = item.name[:-2]
-                item._nodeid = item._nodeid[:-2]
