@@ -38,13 +38,13 @@ Miscellaneous features that help provide a _batteries-included_ experience:
 You can install "pytest-iovis" with its default notebook runner via:
 
 ```
-$ pip install 'git+https://github.com/kdestin/pytest-iovis.git[papermill]'
+$ pip install 'pytest-iovis[papermill] @ git+https://github.com/kdestin/pytest-iovis.git'
 ```
 
 If the bundled runner is not needed:
 
 ```
-$ pip install git+https://github.com/kdestin/pytest-iovis.git
+$ pip install 'pytest-iovis @ git+https://github.com/kdestin/pytest-iovis.git'
 ```
 
 **Note**: This does not install _any_ kernels for running notebooks. Users should install notebook kernels separately
