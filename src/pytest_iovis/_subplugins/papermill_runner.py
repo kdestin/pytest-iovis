@@ -15,6 +15,7 @@ def test_notebook_runs(
     papermill_output_path: Optional[Path],
     papermill_parameters: Dict[str, Any],
     papermill_extra_arguments: List[str],
+    papermill_cwd: Optional[Path],
 ) -> None:
     cast(
         NotebookNode,
@@ -23,6 +24,7 @@ def test_notebook_runs(
             papermill_output_path,
             parameters=papermill_parameters,
             extra_arguments=papermill_extra_arguments,
+            cwd=papermill_cwd,
         ),
     )
 
@@ -66,6 +68,14 @@ class PapermillTestRunner:
             return [style_plugin.get_ipython_markup_arg()]
 
         return []
+
+    @pytest.fixture()
+    def papermill_cwd(self, notebook_path: Path) -> Optional[Path]:
+        """Return the path to execute notebooks from. Defaults to notebook's directory.
+
+        If set to None, will run in the current working directory.
+        """
+        return notebook_path.parent
 
     def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
         yield test_notebook_runs

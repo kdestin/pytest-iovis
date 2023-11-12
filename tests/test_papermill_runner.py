@@ -23,6 +23,9 @@ class TestFixtures:
                 "papermill_extra_arguments -- */pytest_iovis/_subplugins/papermill_runner.py:*",
                 "    Return a list passed as the extra_arguments parameter for papermill.execute_notebook.",
                 "",
+                "papermill_cwd -- */pytest_iovis/_subplugins/papermill_runner.py:*",
+                "    Return the path to execute notebooks from. Defaults to notebook's directory.",
+                "",
             ],
             consecutive=True,
         )
@@ -79,6 +82,26 @@ class TestFixtures:
 
             def test_fixture(notebook_path, papermill_extra_arguments):
                 assert isinstance(papermill_extra_arguments, list)
+
+            def pytest_iovis_set_test_functions():
+                yield test_fixture
+        """
+        )
+
+        res = testdir.runpytest(dummy_notebook)
+
+        res.assert_outcomes(passed=1)
+
+        assert res.ret == 0, "pytest exited non-zero exitcode"
+
+    def test_papermill_cwd(self, dummy_notebook: Path, testdir: pytest.Testdir) -> None:
+        """Validate that papermill_cwd defaults to the directory the notebook is in."""
+        testdir.makeconftest(
+            """
+            import pytest
+
+            def test_fixture(notebook_path, papermill_cwd):
+                assert papermill_cwd == notebook_path.parent
 
             def pytest_iovis_set_test_functions():
                 yield test_fixture
