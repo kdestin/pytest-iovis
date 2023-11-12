@@ -1,16 +1,17 @@
 import functools
 import json
-import os
 from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 import pytest
+
+from pytest_iovis import PathType
 
 pytest_plugins = ["pytester"]
 
 
 @pytest.fixture()
-def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union["os.PathLike[str]", str]]], Path]:
+def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[PathType]], Path]:
     """Return a Callable that can be used to generate empty (dummy) notebooks.
 
     The callable accepts either:
@@ -27,7 +28,7 @@ def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[
     )
 
     @functools.wraps(dummy_notebook_factory)  # type: ignore[misc]
-    def toReturn(filename: Optional[Union["os.PathLike[str]", str]] = None) -> Path:
+    def toReturn(filename: Optional[PathType] = None) -> Path:
         if filename:
             return Path(testdir.makefile(".ipynb", **{str(Path(filename).with_suffix("")): notebook_string}))
         return Path(testdir.makefile(".ipynb", notebook_string))
@@ -36,6 +37,6 @@ def dummy_notebook_factory(testdir: pytest.Testdir) -> Callable[[Optional[Union[
 
 
 @pytest.fixture()
-def dummy_notebook(dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path]) -> Path:
+def dummy_notebook(dummy_notebook_factory: Callable[[Optional[PathType]], Path]) -> Path:
     """Return a Jupyter notebook that always runs successfully."""
     return dummy_notebook_factory(None)

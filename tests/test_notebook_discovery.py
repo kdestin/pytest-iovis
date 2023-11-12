@@ -1,11 +1,10 @@
 import inspect
-import os
 from pathlib import Path
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional
 
 import pytest
 
-from pytest_iovis import TestObject
+from pytest_iovis import PathType, TestObject
 
 
 @pytest.fixture()
@@ -34,7 +33,7 @@ class TestSetTestFunctions:
         *funcs: TestObject,
         inherit: bool = False,
         for_notebooks: Optional[Dict[str, Callable[..., object]]] = None,
-        directory: Optional[Union[str, "os.PathLike[str]"]] = None,
+        directory: Optional[PathType] = None,
     ) -> None:
         """Override the test functions used when collecting noteboks.
 
@@ -46,7 +45,7 @@ class TestSetTestFunctions:
         :keyword for_notebook: Map of files to hook functions, used to configure test functions for that file
         :type for_notebook: Optional[Dict[str, Callable[..., object]]]
         :keyword directory: The directory to write the conftest.py to
-        :type directory: Optional[Union[str, "os.PathLike[str]"]]
+        :type directory: Optional[PathType]
         """
         if for_notebooks is None:
             for_notebooks = {}
@@ -155,7 +154,7 @@ class TestSetTestFunctions:
     def test_nested_add_new_function(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that a nested conftest can add a new test to the parent conftest's set tests."""
 
@@ -193,7 +192,7 @@ class TestSetTestFunctions:
     def test_nested_can_override(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that a nested conftest can define its own set of tests to run."""
 
@@ -229,7 +228,7 @@ class TestSetTestFunctions:
     def test_nested_disable_collection(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that a nested conftest can completely disable collection for a directory."""
 
@@ -264,7 +263,7 @@ class TestSetTestFunctions:
     def test_deeply_nested(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that we can configure multiple levels of nested confttests."""
 
@@ -324,7 +323,7 @@ class TestSetTestFunctions:
     def test_nested_multiple_branches_with_conftest(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that test functions can be configured simultaneously for multiple branches in a filesystem."""
 
@@ -377,7 +376,7 @@ class TestSetTestFunctions:
     def test_nested_some_branches_no_conftest(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that configuring test functions in a subdirectory doesn't poison non-configured branches."""
 
@@ -416,7 +415,7 @@ class TestSetTestFunctions:
     def test_file_hook(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that you can call a 'file hook' to configure test functions for a single file."""
 
@@ -453,7 +452,7 @@ class TestSetTestFunctions:
     def test_most_specific_file_hook_wins(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that the file hook registered in the closest conftest wins if there's multiple hooks for a file."""
 
@@ -503,7 +502,7 @@ class TestSetTestFunctions:
     def test_file_hook_inherits_from_appropriate_scope(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that a file hook is passed the correct inherited."""
 
@@ -555,7 +554,7 @@ class TestSetTestFunctions:
     def test_file_hooks_for_multiple_files(
         self,
         testdir: pytest.Testdir,
-        dummy_notebook_factory: Callable[[Optional[Union["os.PathLike[str]", str]]], Path],
+        dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
         """Validate that multiple file hooks can be used to configure multiple files."""
 
