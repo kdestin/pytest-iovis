@@ -73,10 +73,8 @@ class ScopedFunctionHandler:
         self.file_hooks: Dict[Path, SetTestFunctionHook] = {}
         self.path_trie: Optional[PathTrie[Tuple[TestObject, ...]]] = None
 
-    @pytest.hookimpl(trylast=True)
-    def pytest_configure(self, config: pytest.Config) -> None:
+    def _initialize_trie(self, manager: pytest.PytestPluginManager) -> None:
         """Initialize our path_trie with the global test functions and any already collected conftest.py."""
-        manager = config.pluginmanager
         all_plugins = manager.get_plugins()
         conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
 
@@ -93,6 +91,13 @@ class ScopedFunctionHandler:
                 Path(conftest.__file__).parent,
                 self.call_hook_without(manager, all_plugins.difference({conftest})),
             )
+
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_collect_file(self, parent: pytest.Collector) -> Iterable[None]:
+        if self.path_trie is None:
+            self._initialize_trie(parent.config.pluginmanager)
+
+        yield
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
         """Register the `pytest_iovis_set_test_functions` hook."""
