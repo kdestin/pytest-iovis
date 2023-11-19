@@ -43,7 +43,7 @@ class TestFixtures:
             def test_fixture(notebook_path, papermill_parameters):
                 assert isinstance(papermill_parameters, dict)
 
-            def pytest_iovis_set_test_functions():
+            def pytest_iovis_set_tests():
                 yield test_fixture
         """
         )
@@ -67,7 +67,7 @@ class TestFixtures:
                 assert tmp_path in papermill_output_path.parents, "papermill_output_path should be in a temp directory"
                 assert papermill_output_path.name == {dummy_notebook.with_suffix('.output.ipynb').name!r}
 
-            def pytest_iovis_set_test_functions():
+            def pytest_iovis_set_tests():
                 yield test_fixture
         """
         )
@@ -87,7 +87,7 @@ class TestFixtures:
             def test_fixture(notebook_path, papermill_extra_arguments):
                 assert isinstance(papermill_extra_arguments, list)
 
-            def pytest_iovis_set_test_functions():
+            def pytest_iovis_set_tests():
                 yield test_fixture
         """
         )
@@ -107,7 +107,7 @@ class TestFixtures:
             def test_fixture(notebook_path, papermill_cwd):
                 assert papermill_cwd == notebook_path.parent
 
-            def pytest_iovis_set_test_functions():
+            def pytest_iovis_set_tests():
                 yield test_fixture
         """
         )

@@ -38,7 +38,7 @@ class FileTestFunctionCallback(Protocol):
 
 
 class SetTestFunctionHook(Protocol):
-    """The type of the pytest_iovis_set_test_functions hook."""
+    """The type of the pytest_iovis_set_tests hook."""
 
     def __call__(
         self,

@@ -84,7 +84,7 @@ class PapermillTestRunner:
         """
         return notebook_path.parent
 
-    def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
+    def pytest_iovis_set_tests(self) -> Iterable[TestObject]:
         yield test_notebook_runs
 
     def pytest_exception_interact(

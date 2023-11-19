@@ -34,7 +34,7 @@ def override_test_functions(
             *[inspect.getsource(f).lstrip() for f in funcs],
             "",
             *[inspect.getsource(f).lstrip() for f in tests_for.values()],
-            "def pytest_iovis_set_test_functions(inherited, tests_for):",
+            "def pytest_iovis_set_tests(inherited, tests_for):",
             f"   if {inherit!r}:",
             "      yield from inherited",
             *[f"   tests_for({k!r})({v.__name__})" for k, v in tests_for.items()],
@@ -705,7 +705,7 @@ class TestFileHook:
         res.assert_outcomes(errors=1)
         res.stdout.fnmatch_lines(
             [
-                "bar/conftest.py:10: in pytest_iovis_set_test_functions",
+                "bar/conftest.py:10: in pytest_iovis_set_tests",
                 f"    tests_for('{nb}')(file_hook)",
                 "E   Failed: tests_for's path must be a subpath of the calling conftest's directory.",
                 "*= short test summary info =*",
@@ -731,7 +731,7 @@ class TestFileHook:
         res.assert_outcomes(errors=1)
         res.stdout.fnmatch_lines(
             [
-                "conftest.py:10: in pytest_iovis_set_test_functions",
+                "conftest.py:10: in pytest_iovis_set_tests",
                 "    tests_for('test.ipynb')(file_hook)",
                 f"E   Failed: Not a file: {Path(testdir.tmpdir, 'test.ipynb')}",
                 "*= short test summary info =*",
@@ -758,7 +758,7 @@ class TestFileHook:
         res.assert_outcomes(errors=1)
         res.stdout.fnmatch_lines(
             [
-                "conftest.py:10: in pytest_iovis_set_test_functions",
+                "conftest.py:10: in pytest_iovis_set_tests",
                 f"    tests_for('{directory.name}')(file_hook)",
                 f"E   Failed: Not a file: {directory}",
                 "*= short test summary info =*",

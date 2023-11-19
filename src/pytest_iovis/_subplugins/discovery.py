@@ -12,7 +12,7 @@ from .._utils import PathTrie, partition
 
 class SetFunctionHookSpec:
     @pytest.hookspec(firstresult=True)
-    def pytest_iovis_set_test_functions(
+    def pytest_iovis_set_tests(
         self,
         inherited: Tuple[TestObject, ...],
         tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
@@ -35,7 +35,7 @@ class SetFunctionHookSpec:
 
 
 # Useless assignment so that mypy ensures the hook implements protocol
-_: SetTestFunctionHook = SetFunctionHookSpec().pytest_iovis_set_test_functions
+_: SetTestFunctionHook = SetFunctionHookSpec().pytest_iovis_set_tests
 
 
 class ScopedFunctionHandler:
@@ -52,7 +52,7 @@ class ScopedFunctionHandler:
 
     """
 
-    HOOK_NAME = SetFunctionHookSpec.pytest_iovis_set_test_functions.__name__
+    HOOK_NAME = SetFunctionHookSpec.pytest_iovis_set_tests.__name__
 
     def __init__(self) -> None:
         # Assigning to the instance instead of stashing in a session because the session object isn't available in
@@ -87,7 +87,7 @@ class ScopedFunctionHandler:
         yield
 
     def pytest_addhooks(self, pluginmanager: pytest.PytestPluginManager) -> None:
-        """Register the `pytest_iovis_set_test_functions` hook."""
+        """Register the `pytest_iovis_set_tests` hook."""
         pluginmanager.add_hookspecs(SetFunctionHookSpec)
 
     @staticmethod
@@ -203,7 +203,7 @@ class JupyterNotebookDiscoverer:
     """The name of the fixture that will be parametrized by this plugin"""
 
     @pytest.hookimpl(trylast=True)
-    def pytest_iovis_set_test_functions(self) -> Iterable[TestObject]:
+    def pytest_iovis_set_tests(self) -> Iterable[TestObject]:
         def test_nothing(notebook_path: Path) -> None:  # noqa: ARG001
             """Do nothing."""
 
