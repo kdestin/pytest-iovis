@@ -6,7 +6,7 @@ import pytest
 from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._types import PathType, SetTestFunctionHook, SetTestsForFileCallback, TestObject
+from .._types import PathType, SetTestsForFileCallback, SetTestsHook, TestObject
 from .._utils import PathTrie, partition
 
 
@@ -35,7 +35,7 @@ class SetFunctionHookSpec:
 
 
 # Useless assignment so that mypy ensures the hook implements protocol
-_: SetTestFunctionHook = SetFunctionHookSpec().pytest_iovis_set_tests
+_: SetTestsHook = SetFunctionHookSpec().pytest_iovis_set_tests
 
 
 class ScopedFunctionHandler:
@@ -57,7 +57,7 @@ class ScopedFunctionHandler:
     def __init__(self) -> None:
         # Assigning to the instance instead of stashing in a session because the session object isn't available in
         # pytest_plugin_registered.
-        self.file_hooks: Dict[Path, SetTestFunctionHook] = {}
+        self.file_hooks: Dict[Path, SetTestsHook] = {}
         self.path_trie: Optional[PathTrie[Tuple[TestObject, ...]]] = None
 
     def _initialize_trie(self, manager: pytest.PytestPluginManager) -> None:
@@ -95,7 +95,7 @@ class ScopedFunctionHandler:
         return isinstance(obj, types.ModuleType) and Path(obj.__file__ or ".").name == "conftest.py"
 
     @staticmethod
-    def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetTestFunctionHook:
+    def call_hook_without(manager: pytest.PytestPluginManager, plugins: Iterable[object]) -> SetTestsHook:
         """Return the hook function that runs on all plugins except the supplied ones."""
         return manager.subset_hook_caller(ScopedFunctionHandler.HOOK_NAME, remove_plugins=plugins)
 
@@ -111,7 +111,7 @@ class ScopedFunctionHandler:
             self.call_hook_without(manager, manager.get_plugins().difference({plugin})),
         )
 
-    def add_scoped_hook(self, manager: pytest.PytestPluginManager, scope: Path, hook: SetTestFunctionHook) -> None:
+    def add_scoped_hook(self, manager: pytest.PytestPluginManager, scope: Path, hook: SetTestsHook) -> None:
         """Invoke the hook function for the specified scope, and add the result to our function index.
 
         :param pytest.PytestPluginManager manager: The pytest plugin manager for the current session

@@ -33,7 +33,7 @@ class SetTestsForFileCallback(Protocol):
         raise NotImplementedError()
 
 
-class SetTestFunctionHook(Protocol):
+class SetTestsHook(Protocol):
     """The type of the pytest_iovis_set_tests hook."""
 
     def __call__(
