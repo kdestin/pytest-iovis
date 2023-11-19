@@ -47,8 +47,8 @@ If the bundled runner is not needed:
 pip install 'pytest-iovis @ git+https://github.com/kdestin/pytest-iovis.git'
 ```
 
-**Note**: This does not install _any_ kernels for running notebooks. Users should install notebook kernels separately
-(e.g. `pip install ipykernel`).
+**Note**: Installing `pytest-iovis` does not install _any_ kernels for running notebooks. Users should install notebook
+kernels separately (e.g. `pip install ipykernel`).
 
 ## Getting Started
 
