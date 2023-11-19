@@ -29,11 +29,7 @@ PathType: TypeAlias = Union[str, "os.PathLike[str]"]
 class FileTestFunctionCallback(Protocol):
     """The type of the user-provided callable used to specify tests for a single file."""
 
-    def __call__(
-        self,
-        *,
-        inherited: Tuple[TestObject, ...],
-    ) -> Iterable[TestObject]:
+    def __call__(self, *, current_tests: Tuple[TestObject, ...]) -> Iterable[TestObject]:
         raise NotImplementedError()
 
 
@@ -43,7 +39,7 @@ class SetTestFunctionHook(Protocol):
     def __call__(
         self,
         *,
-        inherited: Tuple[TestObject, ...],
+        current_tests: Tuple[TestObject, ...],
         tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()

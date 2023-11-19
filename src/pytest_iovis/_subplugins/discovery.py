@@ -14,7 +14,7 @@ class SetFunctionHookSpec:
     @pytest.hookspec(firstresult=True)
     def pytest_iovis_set_tests(
         self,
-        inherited: Tuple[TestObject, ...],
+        current_tests: Tuple[TestObject, ...],
         tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         """Set the default test functions for collected Jupyter Notebooks.
@@ -24,8 +24,8 @@ class SetFunctionHookSpec:
 
         This hook will only be called when found in `conftest.py`.
 
-        :param inherited: The test functions inherited from a higher scope
-        :type inherited: Tuple[TestObject, ...]
+        :param current_tests: The test functions that currently apply to the given scope.
+        :type current_tests: Tuple[TestObject, ...]
         :return: Either:
             * A iterable of test functions that will be used for all collected notebooks
             * None, which is equivalent to this hook not having been called
@@ -66,7 +66,7 @@ class ScopedFunctionHandler:
         conftest_plugins, non_conftest_plugins = partition(all_plugins, self.is_conftest)
 
         non_conftest_hooks = self.call_hook_without(manager, conftest_plugins)
-        result = non_conftest_hooks(inherited=(), tests_for=lambda _: lambda _: None)
+        result = non_conftest_hooks(current_tests=(), tests_for=lambda _: lambda _: None)
 
         global_test_functions = tuple(result or ())
 
@@ -141,12 +141,12 @@ class ScopedFunctionHandler:
 
                 def decorator(f: FileTestFunctionCallback) -> None:
                     def hook(
-                        inherited: Tuple[TestObject, ...], tests_for: object  # noqa: ARG001
+                        current_tests: Tuple[TestObject, ...], tests_for: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
                         return cast(
                             Iterable[TestObject],
                             empty_hook_caller.call_extra(
-                                [f], {"inherited": inherited, "tests_for": make_register_fn(pathlib_path)}
+                                [f], {"current_tests": current_tests, "tests_for": make_register_fn(pathlib_path)}
                             ),
                         )
 
@@ -157,7 +157,7 @@ class ScopedFunctionHandler:
             return tests_for
 
         current_funcs = self.test_functions_for(scope)
-        functions_for_scope = hook(inherited=tuple(current_funcs), tests_for=make_register_fn(scope))
+        functions_for_scope = hook(current_tests=tuple(current_funcs), tests_for=make_register_fn(scope))
         if functions_for_scope is None:
             return
 

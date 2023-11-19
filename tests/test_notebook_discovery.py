@@ -34,9 +34,9 @@ def override_test_functions(
             *[inspect.getsource(f).lstrip() for f in funcs],
             "",
             *[inspect.getsource(f).lstrip() for f in tests_for.values()],
-            "def pytest_iovis_set_tests(inherited, tests_for):",
+            "def pytest_iovis_set_tests(current_tests, tests_for):",
             f"   if {inherit!r}:",
-            "      yield from inherited",
+            "      yield from current_tests",
             *[f"   tests_for({k!r})({v.__name__})" for k, v in tests_for.items()],
             f"   yield from ({','.join([*(f.__name__ for f in funcs), ''])})",
         ]
@@ -514,7 +514,7 @@ class TestFileHook:
         testdir: pytest.Testdir,
         dummy_notebook_factory: Callable[[Optional[PathType]], Path],
     ) -> None:
-        """Validate that a file hook is passed the correct inherited."""
+        """Validate that a file hook is passed the correct current_tests."""
 
         def test_function1(notebook_path: object) -> None:  # noqa: ARG001
             pass
@@ -528,11 +528,11 @@ class TestFileHook:
         def test_function4(notebook_path: object) -> None:  # noqa: ARG001
             pass
 
-        def file_hook(inherited):  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN202
+        def file_hook(current_tests):  # type: ignore[no-untyped-def]  # noqa: ANN001,ANN202
             def test_function5(notebook_path: object) -> None:  # noqa: ARG001
                 pass
 
-            yield from inherited
+            yield from current_tests
             yield test_function5
 
         dummy_notebook_factory("foo/bar/test.ipynb")
@@ -580,11 +580,11 @@ class TestFileHook:
 
             yield test_function2
 
-        def file_hook2(inherited):  # type: ignore[no-untyped-def]  # noqa: ANN202,ANN001
+        def file_hook2(current_tests):  # type: ignore[no-untyped-def]  # noqa: ANN202,ANN001
             def test_function3(notebook_path: object) -> None:  # noqa: ARG001
                 pass
 
-            yield from inherited
+            yield from current_tests
             yield test_function3
 
         dummy_notebook_factory("test.ipynb")
