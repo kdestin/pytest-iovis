@@ -1,10 +1,10 @@
-from ._types import FileTestFunctionCallback, NamedCallable, PathType, SetTestFunctionHook, TestObject
+from ._types import NamedCallable, PathType, SetTestFunctionHook, SetTestsForFileCallback, TestObject
 from ._venv_builder import ThinEnvBuilder
 
 __all__ = [
-    "FileTestFunctionCallback",
     "NamedCallable",
     "PathType",
+    "SetTestsForFileCallback",
     "SetTestFunctionHook",
     "TestObject",
     "ThinEnvBuilder",

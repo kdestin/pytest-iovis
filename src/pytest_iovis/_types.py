@@ -26,7 +26,7 @@ TestObject: TypeAlias = Union[NamedCallable, Type[object]]
 PathType: TypeAlias = Union[str, "os.PathLike[str]"]
 
 
-class FileTestFunctionCallback(Protocol):
+class SetTestsForFileCallback(Protocol):
     """The type of the user-provided callable used to specify tests for a single file."""
 
     def __call__(self, *, current_tests: Tuple[TestObject, ...]) -> Iterable[TestObject]:
@@ -40,6 +40,6 @@ class SetTestFunctionHook(Protocol):
         self,
         *,
         current_tests: Tuple[TestObject, ...],
-        tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
+        tests_for: Callable[[PathType], Callable[[SetTestsForFileCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         raise NotImplementedError()

@@ -6,7 +6,7 @@ import pytest
 from typing_extensions import TypeGuard
 
 from .._file import JupyterNotebookFile
-from .._types import FileTestFunctionCallback, PathType, SetTestFunctionHook, TestObject
+from .._types import PathType, SetTestFunctionHook, SetTestsForFileCallback, TestObject
 from .._utils import PathTrie, partition
 
 
@@ -15,7 +15,7 @@ class SetFunctionHookSpec:
     def pytest_iovis_set_tests(
         self,
         current_tests: Tuple[TestObject, ...],
-        tests_for: Callable[[PathType], Callable[[FileTestFunctionCallback], None]],
+        tests_for: Callable[[PathType], Callable[[SetTestsForFileCallback], None]],
     ) -> Optional[Iterable[TestObject]]:
         """Set the default test functions for collected Jupyter Notebooks.
 
@@ -129,8 +129,8 @@ class ScopedFunctionHandler:
 
         def make_register_fn(
             confdir: Path,
-        ) -> Callable[[PathType], Callable[[FileTestFunctionCallback], None]]:
-            def tests_for(path: PathType) -> Callable[[FileTestFunctionCallback], None]:
+        ) -> Callable[[PathType], Callable[[SetTestsForFileCallback], None]]:
+            def tests_for(path: PathType) -> Callable[[SetTestsForFileCallback], None]:
                 pathlib_path = Path(path) if Path(path).is_absolute() else Path(scope, path).resolve()
                 __tracebackhide__ = True  # Hide this function from traceback
                 if confdir not in pathlib_path.parents:
@@ -139,7 +139,7 @@ class ScopedFunctionHandler:
                 if not pathlib_path.is_file():
                     pytest.fail(f"Not a file: {pathlib_path}")
 
-                def decorator(f: FileTestFunctionCallback) -> None:
+                def decorator(f: SetTestsForFileCallback) -> None:
                     def hook(
                         current_tests: Tuple[TestObject, ...], tests_for: object  # noqa: ARG001
                     ) -> Iterable[TestObject]:
