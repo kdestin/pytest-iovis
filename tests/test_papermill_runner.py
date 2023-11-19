@@ -174,6 +174,8 @@ class TestRunner:
                 "----> 1 assert False",
                 "",
                 "AssertionError: ",
+                "",
+                "assert_false.ipynb:cell 1: AssertionError",
                 "-------------------------- Captured stderr call ---------------------------",
             ],
             consecutive=True,

@@ -104,4 +104,11 @@ class PapermillTestRunner:
         if excinfo is None or not isinstance(excinfo.value, pm.PapermillExecutionError):
             return
 
-        report.longrepr = "\n".join(excinfo.value.traceback)
+        exc: pm.PapermillExecutionError = excinfo.value
+
+        report.longrepr = "\n".join(exc.traceback)
+
+        # Path in nodeid is relative (shorter + more consistent with rest of pytest output)
+        node_path = node.nodeid.split("::", maxsplit=1)[0]
+
+        report.longrepr += f"\n\n{node_path}:cell {exc.cell_index + 1}: {exc.ename}"
