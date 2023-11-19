@@ -50,9 +50,9 @@ $ pip install 'pytest-iovis @ git+https://github.com/kdestin/pytest-iovis.git'
 **Note**: This does not install _any_ kernels for running notebooks. Users should install notebook kernels separately
 (e.g. `pip install ipykernel`).
 
-## Usage
+## Getting Started
 
-- TODO
+See [docs/getting-started.md](./docs/getting-started.md).
 
 ## Contributing
 
