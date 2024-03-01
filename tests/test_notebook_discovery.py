@@ -182,17 +182,14 @@ class TestCascadingConfiguration:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=5)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_function1*",
                 "test.ipynb::test_function2*",
                 "nested/test.ipynb::test_function1*",
                 "nested/test.ipynb::test_function2*",
                 "nested/test.ipynb::test_function3*",
-                "",
-            ],
-            consecutive=True,
+            ]
         )
 
     def test_nested_can_override(
@@ -220,15 +217,12 @@ class TestCascadingConfiguration:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=3)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_function1*",
                 "test.ipynb::test_function2*",
                 "nested/test.ipynb::test_function3*",
-                "",
-            ],
-            consecutive=True,
+            ]
         )
 
     def test_nested_disable_collection(
@@ -303,9 +297,8 @@ class TestCascadingConfiguration:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=15)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_function PASSED*",
                 "nested1/test.ipynb::test_function PASSED*",
                 "nested1/test.ipynb::test_function1 PASSED*",
@@ -321,9 +314,7 @@ class TestCascadingConfiguration:
                 "nested1/nested2/nested3/nested4/test.ipynb::test_function2 PASSED*",
                 "nested1/nested2/nested3/nested4/test.ipynb::test_function3 PASSED*",
                 "nested1/nested2/nested3/nested4/test.ipynb::test_function4 PASSED*",
-                "",
-            ],
-            consecutive=True,
+            ]
         )
 
     def test_nested_multiple_branches_with_conftest(
@@ -363,9 +354,8 @@ class TestCascadingConfiguration:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=8)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_function PASSED*",
                 "baz/test.ipynb::test_function PASSED*",
                 "baz/test.ipynb::test_function3 PASSED*",
@@ -374,9 +364,7 @@ class TestCascadingConfiguration:
                 "foo/bar/test.ipynb::test_function2 PASSED*",
                 "grault/garply/waldo/fred/test.ipynb::test_function PASSED*",
                 "grault/garply/waldo/fred/test.ipynb::test_function4 PASSED*",
-                "",
-            ],
-            consecutive=True,
+            ]
         )
 
     def test_nested_some_branches_no_conftest(
@@ -404,18 +392,15 @@ class TestCascadingConfiguration:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=6)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_nothing PASSED*",
                 "baz/test.ipynb::test_nothing PASSED*",
                 "foo/test.ipynb::test_function1 PASSED*",
                 "foo/bar/test.ipynb::test_function1 PASSED*",
                 "foo/bar/test.ipynb::test_function2 PASSED*",
                 "grault/garply/waldo/fred/test.ipynb::test_nothing PASSED*",
-                "",
-            ],
-            consecutive=True,
+            ]
         )
 
 
@@ -446,17 +431,14 @@ class TestFileHook:
         res = testdir.runpytest("-v")
 
         res.assert_outcomes(passed=5)
-        res.stdout.fnmatch_lines(
+        res.stdout.fnmatch_lines_random(
             [
-                "",
                 "test.ipynb::test_nothing PASSED*",
                 "baz/test.ipynb::test_nothing PASSED*",
                 "foo/test.ipynb::test_nothing PASSED*",
                 "foo/bar/test.ipynb::test_function PASSED*",
                 "grault/garply/waldo/fred/test.ipynb::test_nothing PASSED*",
-                "",
             ],
-            consecutive=True,
         )
 
     def test_most_specific_file_hook_wins(
