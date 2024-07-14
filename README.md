@@ -1,7 +1,7 @@
 # pytest-iovis
 
-A plugin that lets developers leverage [pytest] to run/test [Jupyter Notebooks], with some included batteries for
-getting started.
+A plugin that lets you use [pytest] as a frontend to run and validate [Jupyter Notebooks]. Comes with some batteries
+included to get started.
 
 ```console
 $ pytest notebooks/ --verbose
