@@ -134,8 +134,11 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
         super().post_setup(context)
 
         host_lib_path = self.host_lib_path()
+        host_plat_path = self.host_plat_path()
         current_lib_path = self.lib_path(context)
-        Path(current_lib_path, "host_venv_site.pth").write_text(f"{host_lib_path}{os.linesep}", encoding="utf-8")
+        Path(current_lib_path, "host_venv_site.pth").write_text(
+            f"{host_lib_path}{os.linesep}{host_plat_path}{os.linesep}", encoding="utf-8"
+        )
 
         if self.with_pip_from_host:
             self._make_pip_available_in_bin_path(context)
@@ -186,6 +189,14 @@ class ThinEnvBuilderFromVenv(ThinEnvBuilder):
         path = sysconfig.get_path("purelib")
         if path is None:
             raise ValueError("host venv.lib_path is unexpectedly None")
+        return Path(path)
+
+    @staticmethod
+    def host_plat_path() -> Path:
+        """Fetch the host virtual environment's directory for site-specific, platform-specific files."""
+        path = sysconfig.get_path("platlib")
+        if path is None:
+            raise ValueError("host venv.plat_path is unexpectedly None")
         return Path(path)
 
     @staticmethod
