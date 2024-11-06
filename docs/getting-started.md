@@ -5,14 +5,14 @@
 You can install `pytest-iovis` with:
 
 ```shell
-pip install 'pytest-iovis @ git+https://github.com/kdestin/pytest-iovis.git'
+pip install 'pytest-iovis'
 ```
 
 `pytest-iovis` optionally offers out-of-the-box support for running notebooks with [papermill], which can be enabled by
 installing the `papermill` extra.
 
 ```shell
-pip install 'pytest-iovis[papermill] @ git+https://github.com/kdestin/pytest-iovis.git'
+pip install 'pytest-iovis[papermill]'
 ```
 
 **Note**: Installing `pytest-iovis` does not install _any_ kernels for running notebooks. Users should install the
