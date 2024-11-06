@@ -1,0 +1,36 @@
+name: Run Tests
+
+on: 
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/run_tests.yaml
+      - src/**
+      - tests/**
+      - pyproject.toml
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/run_tests.yaml
+      - src/**
+      - tests/**
+      - pyproject.toml
+
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        pytest-version: ["7", "8"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # You can test your matrix by printing the current Python version
+      - run: pip install 'tox~=4.0'
+      - name: Run pytest
+        run: tox run -e pytest${{ matrix.pytest-version }}
